@@ -104,7 +104,7 @@ def train(model, model_hparams, training_hparams):
             optimizer.step()
 
             running_loss += loss.item()
-            if i % 2000 == 1999:
+            if i % 100 == 0:
                 print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
 
@@ -119,4 +119,4 @@ models_path = workdir / "models"
 if not data_path.exists():
     data_path.mkdir(parents=True)
 
-torch.save(resnet20model.state_dict(), models_path)
+torch.save(resnet20model.state_dict(), models_path / "renset-20.pth")
