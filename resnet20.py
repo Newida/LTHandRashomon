@@ -9,7 +9,7 @@ class Resnet_N_W(nn.Module):
         """A ResNet block."""
 
         def __init__(self, f_in: int, f_out: int, downsample=False):
-            super(self).__init__()
+            super(Resnet_N_W.Block, self).__init__()
 
             stride = 2 if downsample else 1
             self.conv1 = nn.Conv2d(f_in, f_out, kernel_size=3, stride=stride, padding=1, bias=False)
@@ -33,7 +33,7 @@ class Resnet_N_W(nn.Module):
             return F.relu(out)
 
     def __init__(self, plan, initializer, outputs=None):
-        super(self).__init__()
+        super(Resnet_N_W, self).__init__()
         outputs = outputs or 10
 
         # Initial convolution.
@@ -46,7 +46,7 @@ class Resnet_N_W(nn.Module):
         for segment_index, (filters, num_blocks) in enumerate(plan):
             for block_index in range(num_blocks):
                 downsample = segment_index > 0 and block_index == 0
-                blocks.append(Block(current_filters, filters, downsample))
+                blocks.append(Resnet_N_W.Block(current_filters, filters, downsample)) #TODO: Resnet_N_W.Block wrong? instead just Block? why not visible
                 current_filters = filters
 
         self.blocks = nn.Sequential(*blocks)
@@ -71,12 +71,12 @@ class Resnet_N_W(nn.Module):
         return (model_name.startswith('resnet-') and
                 3 >= len(model_name.split('-')) >= 2 and #see if model_name can be parsed
                 all([x.isdigit() and int(x) > 0 for x in model_name.split('-')[1:]]) and #see if containts resnet-int-int
-                (int(model_name.split('-')[1].isdigit()) - 2) % 6 == 0 and #valid structure of resnet
+                (int(model_name.split('-')[1]) - 2) % 6 == 0 and #valid structure of resnet
                 (int(model_name.split('-')[1]) > 2)) #minimum of 2 layers required
 
     @staticmethod
     def is_valid_initalizer(initalizer):
-        return initalizer.equal("kaiming_normal") or initalizer.equal("kaiming_uniform")
+        return (initalizer == "kaiming_normal") or (initalizer == "kaiming_uniform")
  
     @staticmethod
     def get_model_from_name(model_name, initializer="kaiming_normal",  outputs=10):
@@ -97,19 +97,19 @@ class Resnet_N_W(nn.Module):
         blocks, meaning there are three blocks per segment. Hence, D = 3.
         The name of the network would be 'cifar_resnet_20' or 'cifar_resnet_20_16'.
         """
-        if not is_valid_initalizer(initializer):
+        if not Resnet_N_W.is_valid_initalizer(initializer):
             raise ValueError('Invalid initializer. Must be either kaiming_normal or kaiming_uniform')
         
-        if initializer.equal("kaiming_uniform"):
+        if initializer == "kaiming_uniform":
             initializer = kaiming_uniform
         else:
             initializer = kaiming_normal
 
-        if not is_valid_model_name(model_name):
+        if not Resnet_N_W.is_valid_model_name(model_name):
             raise ValueError('Invalid ResNet model name: resnet-N-W')
         name = model_name.split('-')
-        W = 16 if len(name) < 2 else int(name[-1])
-        D = int(name[-1])
+        W = 16 if len(name) <= 2 else int(name[-1])
+        D = int(name[1])
         if (D - 2) % 3 != 0:
             raise ValueError('Invalid ResNet depth: {}'.format(D))
         D = (D - 2) // 6
@@ -120,9 +120,9 @@ class Resnet_N_W(nn.Module):
 
 def kaiming_normal(w):
     if isinstance(w, nn.Linear) or isinstance(w, nn.Conv2d):
-        torch.nn.init.kaiming_normal(w.weight)
+        torch.nn.init.kaiming_normal_(w.weight)
     
     
 def kaiming_uniform(w):
     if isinstance(w, nn.Linear) or isinstance(w, nn.Conv2d):
-        torch.nn.init.kaiming_normal(w.weight)
+        torch.nn.init.kaiming_uniform_(w.weight)

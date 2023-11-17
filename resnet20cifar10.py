@@ -2,6 +2,7 @@ from pathlib import Path
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from resnet20 import Resnet_N_W
 
 
 #setting the path to store/load dataset
@@ -55,3 +56,12 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
 
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+
+plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
+resnet20model = Resnet_N_W(plan, initializer, outputs)
+
+for i, data in enumerate(trainloader):
+    inputs, labels = data
+    
+    outputs = resnet20model(inputs)
+    break
