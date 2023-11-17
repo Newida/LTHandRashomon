@@ -76,4 +76,3 @@ class Hparams(object):
                milestones=trainingHparams.milestone_steps,
                gamma=trainingHparams.gamma
                )
-         

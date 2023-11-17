@@ -46,7 +46,12 @@ classes = ('plane', 'car', 'bird', 'cat',
 plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
 resnet20model = Resnet_N_W(plan, initializer, outputs)
 
-resnet20model.load_state_dict(torch.load(workdir / "models"))
+#setting the path to store/load dataset cifar10
+models_path = workdir / "models"
+if not data_path.exists():
+    data_path.mkdir(parents=True)
+
+resnet20model.load_state_dict(torch.load(models_path / "resnet-20-16_20_10_15.pth"))
 
 correct = 0
 total = 0

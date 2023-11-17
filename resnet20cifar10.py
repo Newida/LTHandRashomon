@@ -109,16 +109,14 @@ def train(model, model_hparams, training_hparams):
                 running_loss = 0.0
         
         lr_scheduler.step()
+        
+models_path = workdir / "models"
+if not models_path.exists():
+    models_path.mkdir(parents=True)
 
 import time
 start = time.time()
 train(resnet20model, model_hparams, training_hparams)
 end = time.time()
 print("Time of training:", end - start)
-
-#setting the path to store/load dataset cifar10
-models_path = workdir / "models"
-if not data_path.exists():
-    data_path.mkdir(parents=True)
-
-torch.save(resnet20model.state_dict(), models_path / "renset-20.pth")
+torch.save(resnet20model.state_dict(), models_path / "resnet-20-16_20_10_15.pth")
