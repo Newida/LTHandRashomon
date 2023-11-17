@@ -1,6 +1,6 @@
 import torch
 
-class Hparams:
+class Hparams(object):
     """Collection of all hyperparameters used during training."""
     class DatasetHparams():
         def __init__(self, batch_size = 128) -> None:
@@ -16,7 +16,7 @@ class Hparams:
             self.model_initializer = model_initializer
     
     class TrainingHparams():
-        def __init__(self, optimizer_name = "sgd", lr="0.1",
+        def __init__(self, optimizer_name = "sgd", lr=0.1,
                       training_steps = "160ep", data_order_seed = None,
                        momentum = 0.9, gamma = 0.1, 
                        weight_decay=1e-4, loss_criterion = "crossentropy",
@@ -38,30 +38,31 @@ class Hparams:
     class PruningHparams():
         def __init__(self, pruning_fraction = 0.2) -> None:
             self.pruning_fraction = pruning_fraction
-
-@staticmethod
-def get_optimizer(model, trainingHparams):
-            if trainingHparams.optimizer_name == "sgd":
-                return torch.optim.SGD(
-                     model.parameters(),
-                     lr = trainingHparams.lr,
-                     momentum = trainingHparams.momentum,
-                     weight_decay = trainingHparams.weight_decay or 0
-                )
-            if trainingHparams.optimizer_name == "adam":
-                 return torch.optim.Adam(
-                      model.parameters(),
-                      lr = trainingHparams.lr,
-                      weight_decay = trainingHparams.weight_decay or 0
-                 )
-            else:
-                 raise ValueError("No such optimizer: choose either sgd or adam")
-            
-@staticmethod
-def get_loss_criterium(trainingHparams):
-     if trainingHparams.loss_criterion == "crossentropy":
-          return torch.nn.CrossEntropyLoss()
-     if trainingHparams.loss_criterion == "mse":
-          return torch.nn.MSELoss()
-     else:
-          raise ValueError("No such loss: choose either crossentropy or mse")
+             
+    @staticmethod
+    def get_optimizer(model, trainingHparams):
+               if trainingHparams.optimizer_name == "sgd":
+                    return torch.optim.SGD(
+                         model.parameters(),
+                         lr = trainingHparams.lr,
+                         momentum = trainingHparams.momentum,
+                         weight_decay = trainingHparams.weight_decay or 0
+                    )
+               if trainingHparams.optimizer_name == "adam":
+                    return torch.optim.Adam(
+                         model.parameters(),
+                         lr = trainingHparams.lr,
+                         weight_decay = trainingHparams.weight_decay or 0
+                    )
+               else:
+                    raise ValueError("No such optimizer: choose either sgd or adam")
+               
+    @staticmethod
+    def get_loss_criterion(trainingHparams):
+          if trainingHparams.loss_criterion == "crossentropy":
+               return torch.nn.CrossEntropyLoss()
+          if trainingHparams.loss_criterion == "mse":
+               return torch.nn.MSELoss()
+          else:
+               raise ValueError("No such loss: choose either crossentropy or mse")
+          

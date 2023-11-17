@@ -71,7 +71,10 @@ model_hparams = Hparams.ModelHparams()
 training_hparams = Hparams.TrainingHparams()
 pruning_hparams = Hparams.PruningHparams() #not used yet
 
-#do training
+#do training 
+#TODO: be wary for the randomness in the training
+# as it is important to identify different winning tickets later
+# therefore add sampler that allows to influence advanced shuffeling
 def train(model, model_hparams, training_hparams):
     model.to(device)
     model.train()
@@ -80,12 +83,15 @@ def train(model, model_hparams, training_hparams):
     #lr_schedule = training_hparams.get_lr_schedule() TODO: implement
     loss_criterion = Hparams.get_loss_criterion(training_hparams)
 
-    data_order_seed = training_hparams.data_order_seed
+    #data_order_seed = training_hparams.data_order_seed not used yet
 
     #implement early stopping instead
-    for epoch in range(training_hparams.num_epochs):
-        trainloader.shuffle(None if data_order_seed is None else (data_order_seed + eepochp))
+    print("Started training ...")
+    for epoch in range(training_hparams.num_epoch):
+        #trainloader.shuffle(None if data_order_seed is None else (data_order_seed + epoch))
+        #TODO: shuffeling not implemented yet
         #TODO: find out why we want different data order for each epoch
+        running_loss = 0.0
         for i, data in enumerate(trainloader):
             inputs, labels = data
             inputs = inputs.to(device)
@@ -102,7 +108,11 @@ def train(model, model_hparams, training_hparams):
                 print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
 
+import time
+start = time.time()
 train(resnet20model, model_hparams, training_hparams)
+end = time.time()
+print("Time of training:", end - start)
 
 #setting the path to store/load dataset cifar10
 models_path = workdir / "models"
