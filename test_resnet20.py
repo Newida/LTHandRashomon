@@ -61,7 +61,7 @@ print("-Testing structure")
 plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
 resnet20model = Resnet_N_W(plan, initializer, outputs)
 print(resnet20model.blocks)
-print("-Testing forwardstep")#
+print("-Testing forwardstep")
 input = torch.unsqueeze(torch.stack([torch.eye(32),torch.eye(32),torch.eye(32)]), 0)
 resnet20model(input)
 print("-"*20)
