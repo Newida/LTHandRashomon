@@ -80,7 +80,7 @@ def train(model, model_hparams, training_hparams):
     model.train()
     #not implemented yet
     optimizer = Hparams.get_optimizer(model, training_hparams)
-    lr_scheduler = training_hparams.get_lr_scheduler()
+    lr_scheduler = Hparams.get_lr_scheduler(optimizer, training_hparams)
     loss_criterion = Hparams.get_loss_criterion(training_hparams)
 
     #data_order_seed = training_hparams.data_order_seed not used yet

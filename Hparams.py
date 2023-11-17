@@ -20,7 +20,7 @@ class Hparams(object):
                       training_steps = "160ep", data_order_seed = None,
                        momentum = 0.9, gamma = 0.1, 
                        weight_decay=1e-4, loss_criterion = "crossentropy",
-                         num_epoch = 10,
+                         num_epoch = 160,
                          milestone_steps = [80, 120]) -> None:
             #TODO: find out what: nosterov is
             #TODO: replace num_epoch by early stopping
@@ -70,7 +70,7 @@ class Hparams(object):
                raise ValueError("No such loss: choose either crossentropy or mse")
           
     @staticmethod
-    def get_lr_scheule(optimizer, trainingHparams):
+    def get_lr_scheduler(optimizer, trainingHparams):
          return torch.optim.lr_scheduler.MultiStepLR(
                optimizer,
                milestones=trainingHparams.milestone_steps,
