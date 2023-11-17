@@ -20,8 +20,9 @@ class Hparams(object):
                       training_steps = "160ep", data_order_seed = None,
                        momentum = 0.9, gamma = 0.1, 
                        weight_decay=1e-4, loss_criterion = "crossentropy",
-                         num_epoch = 10) -> None:
-            #TODO: find out what: gamma, nosterov is
+                         num_epoch = 10,
+                         milestone_steps = [80, 120]) -> None:
+            #TODO: find out what: nosterov is
             #TODO: replace num_epoch by early stopping
             #TODO: add missing hparams: 
             #training_steps, neserov_momentum, milsetone_steps, warmup_steps
@@ -30,10 +31,12 @@ class Hparams(object):
             self.training_steps = training_steps
             self.data_order_seed = data_order_seed
             self.momentum = momentum
-            self.gamma = gamma
             self.weight_decay = weight_decay
             self.loss_criterion = loss_criterion
             self.num_epoch = num_epoch
+            self.milestone_steps = milestone_steps #at which epoch to drop the learning rate
+            #measured in epochs
+            self.gamma = gamma #the amount the learning rate drops when reaching a milestone
     
     class PruningHparams():
         def __init__(self, pruning_fraction = 0.2) -> None:
@@ -66,3 +69,11 @@ class Hparams(object):
           else:
                raise ValueError("No such loss: choose either crossentropy or mse")
           
+    @staticmethod
+    def get_lr_scheule(optimizer, trainingHparams):
+         return torch.optim.lr_scheduler.MultiStepLR(
+               optimizer,
+               milestones=trainingHparams.milestone_steps,
+               gamma=trainingHparams.gamma
+               )
+         

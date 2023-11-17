@@ -28,7 +28,7 @@ transform = transforms.Compose(
 #training hyperparameters
 #optimizer_name='sgd'
 #momentum=0.9
-milestone_steps='80ep,120ep'
+#milestone_steps='80ep,120ep'
 #lr=0.1
 #gamma=0.1
 #weight_decay=1e-4
@@ -68,7 +68,7 @@ resnet20model = Resnet_N_W(plan, initializer, outputs)
 
 #initialize hyperparemeters
 model_hparams = Hparams.ModelHparams()
-training_hparams = Hparams.TrainingHparams()
+training_hparams = Hparams.TrainingHparams(num_epoch=20, milestone_steps=[10, 15])
 pruning_hparams = Hparams.PruningHparams() #not used yet
 
 #do training 
@@ -80,7 +80,7 @@ def train(model, model_hparams, training_hparams):
     model.train()
     #not implemented yet
     optimizer = Hparams.get_optimizer(model, training_hparams)
-    #lr_schedule = training_hparams.get_lr_schedule() TODO: implement
+    lr_scheduler = training_hparams.get_lr_scheduler()
     loss_criterion = Hparams.get_loss_criterion(training_hparams)
 
     #data_order_seed = training_hparams.data_order_seed not used yet
@@ -107,6 +107,8 @@ def train(model, model_hparams, training_hparams):
             if i % 100 == 0:
                 print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
+        
+        lr_scheduler.step()
 
 import time
 start = time.time()
