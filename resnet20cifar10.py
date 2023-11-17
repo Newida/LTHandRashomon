@@ -23,15 +23,23 @@ transform = transforms.Compose(
      ])
 
 #hyper parameters taken from unmaksing the lth 
+#training hyperparameters
+optimizer_name='sgd'
+momentum=0.9
+milestone_steps='80ep,120ep'
+lr=0.1
+gamma=0.1
+weight_decay=1e-4
+training_steps='160ep'
+#pruning hyperparemeters
+pruning_fraction = 0.2
+#dataset hyperparameters
 batch_size = 128
-num_steps = 62400
-lr = 0.1
-momentum = 0.9
-weight_decay = 0.0001
-optimizer = "SGD"
-pruning_depth = 12
-prune_rate = 0.2
-rewind_points = [0, 250, 2000]
+#model hyperparameters
+model_initializer='kaiming_normal'
+#batchnorm_init='uniform' TODO: What does that mean? How is this implemented by frankle? 
+#rewind_points = [0, 250, 2000]
+#loss = CrossEntropyLoss
 
 #(down)load dataset cifar10
 trainset = torchvision.datasets.CIFAR10(root=data_path, train=True,

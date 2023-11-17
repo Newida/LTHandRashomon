@@ -1,8 +1,9 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class Resnet20(nn.Model):
-    """Resnet20 designed for CIFAR-10."""
+class Resnet_N_W(nn.Module):
+    """Resnet_N_W as designed for CIFAR-10."""
 
     class Block(nn.Module):
         """A ResNet block."""
@@ -65,21 +66,21 @@ class Resnet20(nn.Model):
         out = self.fc(out)
         return out
 
-    @property
-    def output_layer_names(self):
-        return ['fc.weight', 'fc.bias']
-
     @staticmethod
     def is_valid_model_name(model_name):
-        return (model_name.startswith('cifar_resnet_') and
-                5 > len(model_name.split('_')) > 2 and
-                all([x.isdigit() and int(x) > 0 for x in model_name.split('_')[2:]]) and
-                (int(model_name.split('_')[2]) - 2) % 6 == 0 and
-                int(model_name.split('_')[2]) > 2)
+        return (model_name.startswith('resnet-') and
+                3 >= len(model_name.split('-')) >= 2 and #see if model_name can be parsed
+                all([x.isdigit() and int(x) > 0 for x in model_name.split('-')[1:]]) and #see if containts resnet-int-int
+                (int(model_name.split('-')[1].isdigit()) - 2) % 6 == 0 and #valid structure of resnet
+                (int(model_name.split('-')[1]) > 2)) #minimum of 2 layers required
 
     @staticmethod
-    def get_model_from_name(model_name, initializer,  outputs=10):
-        """The naming scheme for a ResNet is 'cifar_resnet_N[_W]'.
+    def is_valid_initalizer(initalizer):
+        return initalizer.equal("kaiming_normal") or initalizer.equal("kaiming_uniform")
+ 
+    @staticmethod
+    def get_model_from_name(model_name, initializer="kaiming_normal",  outputs=10):
+        """The naming scheme for a ResNet is 'resnet_N[_W]'.
 
         The ResNet is structured as an initial convolutional layer followed by three "segments"
         and a linear output layer. Each segment consists of D blocks. Each block is two
@@ -96,16 +97,32 @@ class Resnet20(nn.Model):
         blocks, meaning there are three blocks per segment. Hence, D = 3.
         The name of the network would be 'cifar_resnet_20' or 'cifar_resnet_20_16'.
         """
+        if not is_valid_initalizer(initializer):
+            raise ValueError('Invalid initializer. Must be either kaiming_normal or kaiming_uniform')
+        
+        if initializer.equal("kaiming_uniform"):
+            initializer = kaiming_uniform
+        else:
+            initializer = kaiming_normal
 
-        if not Model.is_valid_model_name(model_name):
-            raise ValueError('Invalid model name: {}'.format(model_name))
-
-        name = model_name.split('_')
-        W = 16 if len(name) == 3 else int(name[3])
-        D = int(name[2])
+        if not is_valid_model_name(model_name):
+            raise ValueError('Invalid ResNet model name: resnet-N-W')
+        name = model_name.split('-')
+        W = 16 if len(name) < 2 else int(name[-1])
+        D = int(name[-1])
         if (D - 2) % 3 != 0:
             raise ValueError('Invalid ResNet depth: {}'.format(D))
         D = (D - 2) // 6
         plan = [(W, D), (2*W, D), (4*W, D)]
 
-        return Model(plan, initializer, outputs)
+        return plan, initializer, outputs
+
+
+def kaiming_normal(w):
+    if isinstance(w, nn.Linear) or isinstance(w, nn.Conv2d):
+        torch.nn.init.kaiming_normal(w.weight)
+    
+    
+def kaiming_uniform(w):
+    if isinstance(w, nn.Linear) or isinstance(w, nn.Conv2d):
+        torch.nn.init.kaiming_normal(w.weight)
