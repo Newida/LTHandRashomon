@@ -1,5 +1,25 @@
 import torch
 
+#hyper parameters taken from unmaksing the lth 
+#training hyperparameters
+#optimizer_name='sgd'
+#momentum=0.9
+#milestone_steps='80ep,120ep'
+#lr=0.1
+#gamma=0.1
+#weight_decay=1e-4
+#training_steps='160ep'
+#data_order_seed = 0
+#pruning hyperparemeters
+#pruning_fraction = 0.2
+#dataset hyperparameters
+#batch_size = 128
+#model hyperparameters
+#model_initializer='kaiming_normal'
+#batchnorm_init='uniform' TODO: What does that mean? How is this implemented by frankle? 
+#rewind_points = [0, 250, 2000]
+#loss = CrossEntropyLoss
+
 class Hparams(object):
     """Collection of all hyperparameters used during training."""
     class DatasetHparams():
