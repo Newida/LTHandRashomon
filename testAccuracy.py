@@ -51,7 +51,7 @@ models_path = workdir / "models"
 if not data_path.exists():
     data_path.mkdir(parents=True)
 
-resnet20model.load_state_dict(torch.load(models_path / "resnet-20-16_10_8.pth"))
+resnet20model.load_state_dict(torch.load(models_path / "resnet-20-16_10_7_9.pth"))
 
 correct = 0
 total = 0
