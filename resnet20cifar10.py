@@ -4,6 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 from resnet20 import Resnet_N_W
 from Hparams import Hparams
+from utils_DataLoader import DataLoaderHelper
 
 
 #setting the path to store/load dataset cifar10
@@ -47,17 +48,26 @@ transform = transforms.Compose(
 dataset_hparams = Hparams.DatasetHparams()
 
 #(down)load dataset cifar10
-trainset = torchvision.datasets.CIFAR10(root=data_path, train=True,
-                                        download=True, transform=transform)
-testset = torchvision.datasets.CIFAR10(root=data_path, train=False,
-                                       download=True, transform=transform)
+dataloaderhelper = DataLoaderHelper(0, 0, dataset_hparams)
 
-trainloader = torch.utils.data.DataLoader(trainset,
-                                          batch_size=dataset_hparams.batch_size,
-                                          shuffle=True, num_workers=2)
+trainset = dataloaderhelper.get_trainset(data_path, transform)
+testset = dataloaderhelper.get_testset(data_path, transform)
 
-testloader = torch.utils.data.DataLoader(testset, batch_size=dataset_hparams.batch_size,
-                                         shuffle=False, num_workers=2)
+trainset, valset = dataloaderhelper.split_train_val(trainset)
+
+testloader = dataloaderhelper.get_test_loader(testset)
+valloader = dataloaderhelper.get_validation_loader(valset)
+trainloader = dataloaderhelper.get_train_loader(trainset)
+
+#strategy:
+#1. define seed
+#2. split training data into training and validation
+#3. use training data as before
+#4. add early stopping using the validation dataset
+#dont shuffle validation set
+#shuffle training data
+#create a class or something to keep everything the same, when using the seed
+#that means validation set and shuffling during training should stay the same given a seed
 
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
@@ -88,9 +98,10 @@ def train(model, model_hparams, training_hparams):
     #implement early stopping instead
     print("Started training ...")
     for epoch in range(training_hparams.num_epoch):
-        #trainloader.shuffle(None if data_order_seed is None else (data_order_seed + epoch))
-        #TODO: shuffeling not implemented yet
-        #TODO: find out why we want different data order for each epoch
+        trainloader.shuffle(trainloader.get_seed() + epoch)
+        #shuffle data for each epoch,
+        #usually done by setting shuffle = True in the dataloader
+        #but not in our case since we have a custom one
         running_loss = 0.0
         for i, data in enumerate(trainloader):
             inputs, labels = data
