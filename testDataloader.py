@@ -5,8 +5,9 @@ import torchvision
 import torchvision.transforms as transforms
 from resnet20 import Resnet_N_W
 from Hparams import Hparams
-from utils_DataLoader import DataLoaderHelper
+from utils_DataLoader import DataLoaderHelper, TrainLoader
 from utils_Earlystopper import EarlyStopper
+import numpy as np
 
 #setting the path to store/load dataset cifar10
 workdir = Path.cwd()
@@ -40,3 +41,26 @@ trainset, valset = dataloaderhelper.split_train_val(trainset)
 
 print("lent:", len(trainset))
 print("lenv:", len(valset))
+
+#Test Trainloader
+traingenerator = torch.Generator()
+traingenerator.manual_seed(0)
+traingenerator2 = torch.Generator()
+traingenerator2.manual_seed(0)
+trainloader = TrainLoader(trainset, 128, traingenerator)
+for images, labels in trainloader:
+    print(images.shape)
+    break
+
+orig_tensor = torch.tensor([1,2,3,4,5])
+torch.manual_seed(0)
+shuffled_tensor = orig_tensor.clone()
+indices = torch.randperm(shuffled_tensor.size((0)))
+shuffled_tensor = shuffled_tensor[indices]
+print("First 10 permuted indices:", shuffled_tensor)
+shuffled_tensor2 = orig_tensor.clone()
+indices2 = torch.randperm(shuffled_tensor.size((0)))
+shuffled_tensor2 = shuffled_tensor[indices2]
+print("First 10 permuted indices:", shuffled_tensor2)
+#print("Should be 0:", torch.norm(indices1 - indices1_2))
+#permutes the indices from 0 to len(trainset)-1

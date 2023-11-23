@@ -55,7 +55,7 @@ class Resnet_N_W(nn.Module):
         self.fc = nn.Linear(plan[-1][0], outputs)
         self.criterion = nn.CrossEntropyLoss()
 
-        # Initialize.
+        # Initialize
         self.apply(initializer)
 
     def forward(self, x):
