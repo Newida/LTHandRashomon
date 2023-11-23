@@ -40,9 +40,14 @@ trainset, valset = dataloaderhelper.split_train_val(trainset)
 
 testloader = dataloaderhelper.get_test_loader(testset)
 valloader = dataloaderhelper.get_validation_loader(valset)
-trainloader = dataloaderhelper.get_train_loader(trainset)
+trainloader = dataloaderhelper.get_train_loader(trainset)        
 
+"""valloader = dataloaderhelper.get_validation_loader(testset)
 
+trainloader = torch.utils.data.DataLoader(trainset,
+                                                  batch_size=dataset_hparams.batch_size,
+                                         shuffle=True, num_workers=2)
+"""
 
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
@@ -53,7 +58,7 @@ resnet20model = Resnet_N_W(plan, initializer, outputs)
 
 #initialize hyperparemeters
 model_hparams = Hparams.ModelHparams()
-training_hparams = Hparams.TrainingHparams(num_epoch=20, milestone_steps=[15, 18])
+training_hparams = Hparams.TrainingHparams(num_epoch=20, milestone_steps=[19, 20])
 pruning_hparams = Hparams.PruningHparams() #not used yet
 
 #do training 
@@ -95,12 +100,12 @@ def train(model, model_hparams, training_hparams):
                 print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
                 
-                #check early_stopping
+                """#check early_stopping
                 val_loss = get_val_loss(model, valloader, loss_criterion)
                 if early_stopper.early_stop(val_loss):
                     print("Stopped early")
                     break
-
+                """
 
         lr_scheduler.step()
         
@@ -108,7 +113,7 @@ def train(model, model_hparams, training_hparams):
 def get_val_loss(model, valloader, loss_criterion):
     with torch.no_grad():
         cumulated_loss = 0
-        for data in testloader:
+        for data in valloader:
             images, labels = data
             outputs = model(images)
             loss = loss_criterion(outputs, labels)
@@ -126,6 +131,6 @@ start = time.time()
 train(resnet20model, model_hparams, training_hparams)
 end = time.time()
 print("Time of training:", end - start)
-torch.save(resnet20model.state_dict(), models_path / "resnet-20-16_20_18_15.pth")
+torch.save(resnet20model.state_dict(), models_path / "resnet-20-16_20_19_20.pth")
 
 #naming convention: resnet-N-W_<num_epoch>_<1.milestone>_<2.milestone>

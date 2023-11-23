@@ -76,3 +76,4 @@ class ShuffleSampler(torch.utils.data.sampler.Sampler):
     
     def shuffle_dataorder(self, seed):
         self.generator.manual_seed(seed)
+        
