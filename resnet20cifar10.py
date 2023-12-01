@@ -39,15 +39,14 @@ testset = dataloaderhelper.get_testset(data_path, transform)
 trainset, valset = dataloaderhelper.split_train_val(trainset)
 
 testloader = dataloaderhelper.get_test_loader(testset)
-valloader = dataloaderhelper.get_validation_loader(valset)
-trainloader = dataloaderhelper.get_train_loader(trainset)        
+#valloader = dataloaderhelper.get_validation_loader(valset)
+#trainloader = dataloaderhelper.get_train_loader(trainset)        
 
-"""valloader = dataloaderhelper.get_validation_loader(testset)
+valloader = dataloaderhelper.get_validation_loader(valset)
 
 trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=dataset_hparams.batch_size,
                                          shuffle=True, num_workers=2)
-"""
 
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
@@ -79,7 +78,7 @@ def train(model, model_hparams, training_hparams):
     #implement early stopping instead
     print("Started training ...")
     for epoch in range(training_hparams.num_epoch):
-        trainloader.shuffle(trainloader.get_seed() + epoch)
+        #trainloader.shuffle(trainloader.get_seed() + epoch)
         #shuffle data for each epoch,
         #usually done by setting shuffle = True in the dataloader
         #but not in our case since we have a custom one

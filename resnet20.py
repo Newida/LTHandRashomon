@@ -58,6 +58,8 @@ class Resnet_N_W(nn.Module):
         # Initialize
         self.apply(initializer)
 
+        self.initial_state = self.state_dict()
+
     def forward(self, x):
         out = F.relu(self.bn(self.conv(x)))
         out = self.blocks(out)
@@ -126,3 +128,17 @@ def kaiming_normal(w):
 def kaiming_uniform(w):
     if isinstance(w, nn.Linear) or isinstance(w, nn.Conv2d):
         torch.nn.init.kaiming_uniform_(w.weight)
+
+def prune_model(self, model, prune_ratio=0.2, method="l1"):
+    #pytroch pruning tutorials
+    #TODO: implement using pytroch tutorial on pruning
+    #LTH paper says: Do not prune fully-connected output layer
+    #and downsampling residual connections but do i care about this?
+    pass
+
+def reinitialize_model(self, rewind_model):
+    with torch.no_grad():
+        for name, module in self.named_modules():
+            print("name:", name)
+            print("module:", module)
+            module.weight.copy_(rewind_model.module)
