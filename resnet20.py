@@ -59,6 +59,7 @@ class Resnet_N_W(nn.Module):
         self.apply(initializer)
 
         self.initial_state = self.state_dict()
+        self.module_list = [self.conv, self.bn, self.blocks, self.fc]
 
     def forward(self, x):
         out = F.relu(self.bn(self.conv(x)))
@@ -118,6 +119,54 @@ class Resnet_N_W(nn.Module):
         plan = [(W, D), (2*W, D), (4*W, D)]
 
         return plan, initializer, outputs
+    
+    @staticmethod
+    def get_list_of_all_modules(model):
+        all_module_list = []
+        with torch.no_grad():
+            for module in model.module_list:
+                if isinstance(module, torch.nn.Sequential):#block
+                    for name, block in module.named_children():
+                        for name, module_in_block in block.named_children():
+                            if isinstance(module_in_block, torch.nn.Sequential):#downsampling
+                                for module_in_downsampling in module_in_block:
+                                    all_module_list.append(module_in_downsampling)
+                            else:
+                                all_module_list.append(module_in_block)
+                else:
+                    all_module_list.append(module)
+        return all_module_list
+
+    @staticmethod
+    def _copy_weights(source, target):
+    #TODO: add copying for pruned networks
+        with torch.no_grad():
+            target.weight.copy_(source.weight)
+            if target.bias is not None and source.bias is not None:
+                target.bias.copy_(source.bias)
+            elif target.bias is None and source.bias is None:
+                return
+            else:
+                raise ValueError("Biases could not be matched")
+
+    def reinitialize_model(self, rewind_model):
+        with torch.no_grad():
+            list_self = Resnet_N_W.get_list_of_all_modules(self)
+            list_rewind = Resnet_N_W.get_list_of_all_modules(rewind_model)
+            try:
+                for module_self, module_rewind in zip(list_self, list_rewind):
+                    Resnet_N_W._copy_weights(module_self, module_rewind)
+            except Exception as e:
+                print(e)
+                raise ValueError("Models do not have the same structure")
+        
+    def prune_model(self, model, prune_ratio=0.2, method="l1"):
+        #pytroch pruning tutorials
+        #TODO: implement using pytroch tutorial on pruning
+        #LTH paper says: Do not prune fully-connected output layer
+        #and downsampling residual connections but do i care about this?
+        pass
+
 
 
 def kaiming_normal(w):
@@ -128,17 +177,3 @@ def kaiming_normal(w):
 def kaiming_uniform(w):
     if isinstance(w, nn.Linear) or isinstance(w, nn.Conv2d):
         torch.nn.init.kaiming_uniform_(w.weight)
-
-def prune_model(self, model, prune_ratio=0.2, method="l1"):
-    #pytroch pruning tutorials
-    #TODO: implement using pytroch tutorial on pruning
-    #LTH paper says: Do not prune fully-connected output layer
-    #and downsampling residual connections but do i care about this?
-    pass
-
-def reinitialize_model(self, rewind_model):
-    with torch.no_grad():
-        for name, module in self.named_modules():
-            print("name:", name)
-            print("module:", module)
-            module.weight.copy_(rewind_model.module)

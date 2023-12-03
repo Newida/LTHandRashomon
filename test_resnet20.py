@@ -105,24 +105,31 @@ classes = ('plane', 'car', 'bird', 'cat',
 model_hparams = Hparams.ModelHparams()
 training_hparams = Hparams.TrainingHparams(num_epoch=1, milestone_steps=[])
 print("Before training:")
-module_list = [resnet20model.conv, resnet20model.bn, resnet20model.blocks, resnet20model.fc]
-with torch.no_grad():
-    for module in module_list:
-        if isinstance(module, torch.nn.Conv2d):
-            print("CONV")
-        elif isinstance(module, torch.nn.BatchNorm2d):
-            print("BATCHNORM")
-        elif isinstance(module, torch.nn.Sequential):
-            print("BLOCKS:")
-            for name, module_in_block in module.named_children():
-                print(module_in_block)
-        elif isinstance(module, torch.nn.Linear):
-            print("LINEAR")
-        else:
-            print("UNEXPECTED")
-            print(module)
-
-"""
+def compare_models(model1, model2):
+    with torch.no_grad():
+        list_self = Resnet_N_W.get_list_of_all_modules(model1)
+        list_rewind = Resnet_N_W.get_list_of_all_modules(model2)
+        for m_self, m_r in zip(list_self, list_rewind):
+            if isinstance(m_self, torch.nn.Conv2d):
+                conv_self = [m_self.in_channels, m_self.out_channels, m_self.kernel_size,
+                            m_self.stride, m_self.padding, m_self.groups]
+                conv_r = [m_r.in_channels, m_r.out_channels, m_r.kernel_size,
+                            m_r.stride, m_r.padding, m_r.groups]
+                if not all(x == y for x,y in zip(conv_self, conv_r)):
+                    return False
+                if torch.linalg.norm(m_self.weight - m_r.weight) > 1e-10:
+                    return False
+            if isinstance(m_self, torch.nn.Linear):
+                linear_self = [m_self.in_features, m_self.out_features]
+                linear_r = [m_r.in_features, m_r.out_features]
+                if not all(x == y for x,y in zip(linear_self, linear_r)):
+                    return False
+                if torch.linalg.norm(m_self.weight - m_r.weight) > 1e-10:
+                    return False
+                if torch.linalg.norm(m_self.bias - m_r.bias) > 1e-10:
+                    return False
+        return True
+print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
 #train a single epoch
 resnet20model.to(device)
 resnet20model.train()
@@ -145,15 +152,7 @@ for i, data in enumerate(trainloader):
         running_loss = 0.0
         
 print("After training:")
-with torch.no_grad():
-    for name, module in resnet20model.named_modules():
-        print("name:", name)
-        print("module:", module)
-
+print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))            
 resnet20model.reinitialize_model(resnet20model_copy)
-print("After Reset")
-with torch.no_grad():
-    for name, module in resnet20model.named_modules():
-        print("name:", name)
-        print("module:", module)
-"""
+print("After reinitialization:")
+print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
