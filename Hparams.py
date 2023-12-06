@@ -30,11 +30,6 @@ class Hparams(object):
         # data_augmentation methods
         # otherstuff see online
     
-    class ModelHparams():
-        #TODO: add batchnorm_init = uniform?
-        def __init__(self, model_initializer = "kaiming_normal") -> None:
-            self.model_initializer = model_initializer
-    
     class TrainingHparams():
         def __init__(self, optimizer_name = "sgd", lr=0.1,
                       training_steps = "160ep", data_order_seed = None,
@@ -59,8 +54,9 @@ class Hparams(object):
             self.gamma = gamma #the amount the learning rate drops when reaching a milestone
     
     class PruningHparams():
-        def __init__(self, pruning_fraction = 0.2) -> None:
-            self.pruning_fraction = pruning_fraction
+        def __init__(self, pruning_ratio = 0.2, method = "l1") -> None:
+            self.pruning_ratio = pruning_ratio
+            self.pruning_method = method
              
     @staticmethod
     def get_optimizer(model, trainingHparams):

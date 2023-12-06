@@ -158,8 +158,8 @@ if not skip:
             
     print("After training:")
     print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))            
-    resnet20model.reinitialize_model(resnet20model_copy)
-    print("After reinitialization:")
+    resnet20model.rewind(resnet20model_copy)
+    print("After rewind:")
     print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
     print("Are resnet and untouched the same?", compare_models(resnet20model, resnet20model_untouched))
     print("Are copy and untouched the same?", compare_models(resnet20model_copy, resnet20model_untouched))

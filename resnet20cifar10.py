@@ -54,11 +54,7 @@ classes = ('plane', 'car', 'bird', 'cat',
 #create model
 plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
 resnet20model = Resnet_N_W(plan, initializer, outputs)
-
-#initialize hyperparemeters
-model_hparams = Hparams.ModelHparams()
-training_hparams = Hparams.TrainingHparams(num_epoch=20, milestone_steps=[19, 20])
-pruning_hparams = Hparams.PruningHparams() #not used yet
+#naming convention: resnet-N-W_<num_epoch>_<1.milestone>_<2.milestone>
 
 #do training 
 #TODO: be wary for the randomness in the training
@@ -66,7 +62,7 @@ pruning_hparams = Hparams.PruningHparams() #not used yet
 # identify randomness: dataorder, TODO: find more
 
 early_stopper = EarlyStopper(patience=1, min_delta=0)
-def train(model, model_hparams, training_hparams):
+def train(model, training_hparams, trainloader, valloader):
     model.to(device)
     model.train()
     #not implemented yet
@@ -120,24 +116,61 @@ def get_val_loss(model, valloader, loss_criterion):
             
     return cumulated_loss
 
+def imp(model, training_hparams, pruning_hparams, saving_models_path,
+        trainloader, valloader,
+         max_pruning_level=12, warmup_iter=0):
+    #TODO: replace pruning level by early stopping
+    #TODO: implement warum_up before rewind point
+    #TODO: Add calculation of statistics
+    # create new warumploader that does iterations not epochs as seen in youtube video
+    #create rewind point
+    rewind_point = Resnet_N_W(model.plan, model.initializer, model.outputs)
+    rewind_point.load_state_dict(model.state_dict())
+    #save initial model
+    torch.save(model.state_dict(), saving_models_path / "resnet-0.pth")
+    for L in range(max_pruning_level):
+        #do training
+        train(
+            model,
+            training_hparams,
+            trainloader,
+            valloader
+        )
+        #pruning
+        model.prune(
+            prune_ratio = pruning_hparams.pruning_ratio,
+            method = pruning_hparams.pruning_method
+        )
+        torch.save(model.state_dict(), saving_models_path / ("resnet-" + str(L + 1) + ".pth"))
+        #rewind
+        model.rewind(rewind_point)
+
+def calculate_stats():
+    #TODO: implement
+    pass
 
 models_path = workdir / "models"
 if not models_path.exists():
     models_path.mkdir(parents=True)
 
+saving_models_path = models_path / "experiment1"
+if not saving_models_path.exists():
+    saving_models_path.mkdir(parents=True)
+
+#initialize hyperparemeters
+training_hparams = Hparams.TrainingHparams(num_epoch=1, milestone_steps=[2])
+pruning_hparams = Hparams.PruningHparams()
+
 import time
 start = time.time()
-train(resnet20model, model_hparams, training_hparams)
+imp(
+    resnet20model,
+    training_hparams,
+    pruning_hparams,
+    saving_models_path,
+    trainloader,
+    valloader,
+    max_pruning_level = 3
+    )
 end = time.time()
-print("Time of training:", end - start)
-torch.save(resnet20model.state_dict(), models_path / "resnet-20-16_20_19_20.pth")
-
-#naming convention: resnet-N-W_<num_epoch>_<1.milestone>_<2.milestone>
-
-def imp():
-    #TODO: implement and test
-    pass
-
-def calculate_stats():
-    #TODO: implement
-    pass
+print("Time of IMP:", end - start)

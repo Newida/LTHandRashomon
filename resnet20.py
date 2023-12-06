@@ -58,9 +58,12 @@ class Resnet_N_W(nn.Module):
 
         # Initialize
         self.apply(initializer)
-
+        # Helpful attributes that describe state and structure of network
         self.initial_state = self.state_dict()
         self.module_list = [self.conv, self.bn, self.blocks, self.fc]
+        self.plan = plan
+        self.initializer = initializer
+        self.outputs = outputs
 
     def forward(self, x):
         out = F.relu(self.bn(self.conv(x)))
@@ -140,14 +143,13 @@ class Resnet_N_W(nn.Module):
 
     @staticmethod
     def _copy_weights(source, target):
-    #TODO: add copying for pruned networks
         with torch.no_grad():
             #check if pruned
             if "weight_orig" in [name for name, _ in source.named_parameters()]:
                 source.weight_orig.copy_(target.weight)
-                if target.bias is not None and source.bias_orig is not None:
+                if target.bias is not None and source.bias is not None:
                     source.bias_orig.copy_(target.bias)
-                elif target.bias is None and source.bias_orig is None:
+                elif target.bias is None and source.bias is None:
                     return
                 else:
                     raise ValueError("Biases could not be matched")
@@ -160,7 +162,7 @@ class Resnet_N_W(nn.Module):
                 else:
                     raise ValueError("Biases could not be matched")
 
-    def reinitialize_model(self, rewind_model):
+    def rewind(self, rewind_model):
         with torch.no_grad():
             list_self = Resnet_N_W.get_list_of_all_modules(self)
             list_rewind = Resnet_N_W.get_list_of_all_modules(rewind_model)
@@ -171,7 +173,7 @@ class Resnet_N_W(nn.Module):
                 print(e)
                 raise ValueError("Models do not have the same structure")
         
-    def prune_model(self, prune_ratio=0.2, method="l1"):
+    def prune(self, prune_ratio, method):
         #pytroch pruning tutorials
         #LTH paper says: Do not prune fully-connected output layer
         #and downsampling residual connections but do i care about this?
