@@ -116,43 +116,69 @@ def compare_models(model1, model2):
                 conv_r = [m_r.in_channels, m_r.out_channels, m_r.kernel_size,
                             m_r.stride, m_r.padding, m_r.groups]
                 if not all(x == y for x,y in zip(conv_self, conv_r)):
-                    return False
+                    return -1
                 if torch.linalg.norm(m_self.weight - m_r.weight) > 1e-10:
-                    return False
+                    return -2
             if isinstance(m_self, torch.nn.Linear):
                 linear_self = [m_self.in_features, m_self.out_features]
                 linear_r = [m_r.in_features, m_r.out_features]
                 if not all(x == y for x,y in zip(linear_self, linear_r)):
-                    return False
+                    return -1
                 if torch.linalg.norm(m_self.weight - m_r.weight) > 1e-10:
-                    return False
+                    return -2
                 if torch.linalg.norm(m_self.bias - m_r.bias) > 1e-10:
-                    return False
+                    return -3
+                
         return True
 print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
 #train a single epoch
-resnet20model.to(device)
-resnet20model.train()
-optimizer = Hparams.get_optimizer(resnet20model, training_hparams)
-loss_criterion = Hparams.get_loss_criterion(training_hparams)
-print("Started training ...")
-running_loss = 0.0
-for i, data in enumerate(trainloader):
-    inputs, labels = data
-    inputs = inputs.to(device)
-    labels = labels.to(device)    
-    optimizer.zero_grad()
-    outputs = resnet20model(inputs)
-    loss = loss_criterion(outputs, labels)
-    loss.backward()
-    optimizer.step()
-    running_loss += loss.item()
-    if i % 100 == 0:
-        print(f'[{1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
-        running_loss = 0.0
-        
-print("After training:")
-print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))            
-resnet20model.reinitialize_model(resnet20model_copy)
-print("After reinitialization:")
-print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
+skip = True
+if not skip:
+    resnet20model.to(device)
+    resnet20model.train()
+    optimizer = Hparams.get_optimizer(resnet20model, training_hparams)
+    loss_criterion = Hparams.get_loss_criterion(training_hparams)
+    print("Started training ...")
+    running_loss = 0.0
+    for i, data in enumerate(trainloader):
+        inputs, labels = data
+        inputs = inputs.to(device)
+        labels = labels.to(device)    
+        optimizer.zero_grad()
+        outputs = resnet20model(inputs)
+        loss = loss_criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
+        if i % 100 == 0:
+            print(f'[{1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
+            running_loss = 0.0
+            
+    print("After training:")
+    print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))            
+    resnet20model.reinitialize_model(resnet20model_copy)
+    print("After reinitialization:")
+    print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
+
+#test pruning:
+resnet20model.prune_model(method="l1")
+#sparsity check
+print(
+    "Global sparsity: {:.2f}%".format(
+        100. * float(
+            np.sum([torch.sum(module.weight == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
+        / float(
+            np.sum([module.weight.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
+        )
+    )
+
+unpruned = 0
+pruned = 0
+for module in Resnet_N_W.get_list_of_all_modules(resnet20model):
+    for name, _tensor in list(module.named_buffers()):
+        if not "weight_mask" == name:
+            unpruned += 1
+        else:
+            pruned += 1
+print("pruned:", pruned)
+print("unpruned:", unpruned)

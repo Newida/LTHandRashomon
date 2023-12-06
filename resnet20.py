@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.utils import prune
 
 class Resnet_N_W(nn.Module):
     """Resnet_N_W as designed for CIFAR-10."""
@@ -160,13 +161,33 @@ class Resnet_N_W(nn.Module):
                 print(e)
                 raise ValueError("Models do not have the same structure")
         
-    def prune_model(self, model, prune_ratio=0.2, method="l1"):
+    def prune_model(self, prune_ratio=0.2, method="l1"):
         #pytroch pruning tutorials
-        #TODO: implement using pytroch tutorial on pruning
         #LTH paper says: Do not prune fully-connected output layer
         #and downsampling residual connections but do i care about this?
-        pass
+        #prune batchnorm?
+        if method == "l1":
+            prune_method = prune.L1Unstructured
+        elif method == "random":
+            prune_method = prune.RandomUnstructured
 
+        helper_list = Resnet_N_W.get_list_of_all_modules(self)
+        all_parameters_to_prune = []
+        for module in helper_list:
+            if isinstance(module, torch.nn.Linear):
+                all_parameters_to_prune.append((module, "weight"))
+                all_parameters_to_prune.append((module, "bias"))
+            elif isinstance(module, torch.nn.BatchNorm2d):
+                all_parameters_to_prune.append((module, "weight"))
+                all_parameters_to_prune.append((module, "bias"))
+            else:
+                all_parameters_to_prune.append((module, "weight"))
+
+        prune.global_unstructured(
+            all_parameters_to_prune,
+            pruning_method=prune_method,
+            amount=prune_ratio
+        )
 
 
 def kaiming_normal(w):
