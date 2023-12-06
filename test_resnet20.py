@@ -76,6 +76,8 @@ plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
 resnet20model = Resnet_N_W(plan, initializer, outputs)
 resnet20model_copy = Resnet_N_W(plan, initializer, outputs)
 resnet20model_copy.load_state_dict(resnet20model.state_dict())
+resnet20model_untouched = Resnet_N_W(plan, initializer, outputs)
+resnet20model_untouched.load_state_dict(resnet20model.state_dict())
 
 #setting the path to store/load dataset cifar10
 workdir = Path.cwd()
@@ -132,7 +134,7 @@ def compare_models(model1, model2):
         return True
 print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
 #train a single epoch
-skip = True
+skip = False
 if not skip:
     resnet20model.to(device)
     resnet20model.train()
@@ -159,6 +161,8 @@ if not skip:
     resnet20model.reinitialize_model(resnet20model_copy)
     print("After reinitialization:")
     print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
+    print("Are resnet and untouched the same?", compare_models(resnet20model, resnet20model_untouched))
+    print("Are copy and untouched the same?", compare_models(resnet20model_copy, resnet20model_untouched))
 
 #test pruning:
 resnet20model.prune_model(method="l1")
@@ -175,7 +179,7 @@ print(
 unpruned = 0
 pruned = 0
 for module in Resnet_N_W.get_list_of_all_modules(resnet20model):
-    for name, _tensor in list(module.named_buffers()):
+    for name, _ in list(module.named_buffers()):
         if not "weight_mask" == name:
             unpruned += 1
         else:

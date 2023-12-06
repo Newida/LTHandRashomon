@@ -142,13 +142,23 @@ class Resnet_N_W(nn.Module):
     def _copy_weights(source, target):
     #TODO: add copying for pruned networks
         with torch.no_grad():
-            target.weight.copy_(source.weight)
-            if target.bias is not None and source.bias is not None:
-                target.bias.copy_(source.bias)
-            elif target.bias is None and source.bias is None:
-                return
+            #check if pruned
+            if "weight_orig" in [name for name, _ in source.named_parameters()]:
+                source.weight_orig.copy_(target.weight)
+                if target.bias is not None and source.bias_orig is not None:
+                    source.bias_orig.copy_(target.bias)
+                elif target.bias is None and source.bias_orig is None:
+                    return
+                else:
+                    raise ValueError("Biases could not be matched")
             else:
-                raise ValueError("Biases could not be matched")
+                source.weight.copy_(target.weight)
+                if target.bias is not None and source.bias is not None:
+                    source.bias.copy_(target.bias)
+                elif target.bias is None and source.bias is None:
+                    return
+                else:
+                    raise ValueError("Biases could not be matched")
 
     def reinitialize_model(self, rewind_model):
         with torch.no_grad():
@@ -170,6 +180,8 @@ class Resnet_N_W(nn.Module):
             prune_method = prune.L1Unstructured
         elif method == "random":
             prune_method = prune.RandomUnstructured
+        else:
+            raise ValueError("Pruning method can only be random or l1")
 
         helper_list = Resnet_N_W.get_list_of_all_modules(self)
         all_parameters_to_prune = []

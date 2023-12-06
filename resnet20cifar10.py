@@ -133,3 +133,11 @@ print("Time of training:", end - start)
 torch.save(resnet20model.state_dict(), models_path / "resnet-20-16_20_19_20.pth")
 
 #naming convention: resnet-N-W_<num_epoch>_<1.milestone>_<2.milestone>
+
+def imp():
+    #TODO: implement and test
+    pass
+
+def calculate_stats():
+    #TODO: implement
+    pass
