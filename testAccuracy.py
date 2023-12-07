@@ -51,9 +51,14 @@ models_path = workdir / "models"
 if not data_path.exists():
     data_path.mkdir(parents=True)
 
+name = "resnet-1.pth"
+experiment = 1
 #loads a pruned model
-#resnet20model.prune(1, "identity")
-resnet20model.load_state_dict(torch.load(models_path / "experiment1" / "resnet-0.pth"))
+try:#trys to load unpruned model
+    resnet20model.load_state_dict(torch.load(models_path / ("experiment" + str(experiment)) / name))
+except: #load pruned model if loading unpruned failed
+    resnet20model.prune(1, "identity")
+    resnet20model.load_state_dict(torch.load(models_path / ("experiment" + str(experiment)) / name))
 
 correct = 0
 total = 0
