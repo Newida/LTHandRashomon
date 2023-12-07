@@ -182,6 +182,8 @@ class Resnet_N_W(nn.Module):
             prune_method = prune.L1Unstructured
         elif method == "random":
             prune_method = prune.RandomUnstructured
+        elif method == "identity":
+            prune_method = prune.Identity
         else:
             raise ValueError("Pruning method can only be random or l1")
 
@@ -197,11 +199,17 @@ class Resnet_N_W(nn.Module):
             else:
                 all_parameters_to_prune.append((module, "weight"))
 
-        prune.global_unstructured(
-            all_parameters_to_prune,
-            pruning_method=prune_method,
-            amount=prune_ratio
-        )
+        if method == "identity":
+            prune.global_unstructured(
+                all_parameters_to_prune,
+                pruning_method=prune_method
+            )
+        else:
+            prune.global_unstructured(
+                all_parameters_to_prune,
+                pruning_method=prune_method,
+                amount=prune_ratio
+            )
 
 
 def kaiming_normal(w):

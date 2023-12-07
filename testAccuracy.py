@@ -4,7 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 from resnet20 import Resnet_N_W
 from Hparams import Hparams
-
+from torch.nn.utils import prune
 
 #setting the path to store/load dataset cifar10
 workdir = Path.cwd()
@@ -51,12 +51,15 @@ models_path = workdir / "models"
 if not data_path.exists():
     data_path.mkdir(parents=True)
 
-resnet20model.load_state_dict(torch.load(models_path / "experiment1" / "resnet-1.pth"))
+#loads a pruned model
+#resnet20model.prune(1, "identity")
+resnet20model.load_state_dict(torch.load(models_path / "experiment1" / "resnet-0.pth"))
 
 correct = 0
 total = 0
 resnet20model.eval()
-for data in trainloader:
+print("Started Testing ...")
+for data in testloader:
     images, labels = data
     outputs = resnet20model(images)
 
