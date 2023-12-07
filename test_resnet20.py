@@ -54,7 +54,7 @@ try:
 except ValueError:
     print("ValueError raised")
 try:
-    print(Resnet_N_W.get_model_from_name("resnet-20", "somethingesle"))
+    print(Resnet_N_W.get_model_from_name("resnet-20", "somethingelse"))
 except ValueError:
     print("ValueError raised")
 
@@ -104,7 +104,7 @@ trainloader = torch.utils.data.DataLoader(trainset,
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
-model_hparams = Hparams.ModelHparams()
+print("Testing rewinding: ")
 training_hparams = Hparams.TrainingHparams(num_epoch=1, milestone_steps=[])
 print("Before training:")
 def compare_models(model1, model2):
@@ -134,7 +134,7 @@ def compare_models(model1, model2):
         return True
 print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
 #train a single epoch
-skip = False
+skip = True
 if not skip:
     resnet20model.to(device)
     resnet20model.train()
@@ -165,14 +165,47 @@ if not skip:
     print("Are copy and untouched the same?", compare_models(resnet20model_copy, resnet20model_untouched))
 
 #test pruning:
-resnet20model.prune_model(method="l1")
-#sparsity check
+print("Test pruning: ")
+pruning_hparams = Hparams.PruningHparams()
+resnet20model.prune(prune_ratio=pruning_hparams.pruning_ratio, method="l1")
+pruned = 0
+unpruned = 0
+for module in Resnet_N_W.get_list_of_all_modules(resnet20model):
+    if "weight_mask" in [name for name,_ in module.named_buffers()]:
+        pruned += 1
+    else:
+        unpruned += 1
+print("Total expected:", len(Resnet_N_W.get_list_of_all_modules(resnet20model)))
+print("pruned:", pruned)
+print("unpruned:", unpruned)
+print("total: ", pruned + unpruned)
+
+print("Testing loaded pruned model: ")
+resnet = Resnet_N_W(plan, initializer, outputs)
+resnet.prune(1, "identity")
+resnet.load_state_dict(resnet20model.state_dict())
+loaded_modules = Resnet_N_W.get_list_of_all_modules(resnet)
+pruned = 0
+unpruned = 0
+for module in loaded_modules:
+    if "weight_mask" in [name for name,_ in module.named_buffers()]:
+        pruned += 1
+    else:
+        unpruned += 1
+print("Total expected:", len(loaded_modules))
+print("pruned:", pruned)
+print("unpruned:", unpruned)
+print("total: ", pruned + unpruned)
+
+#sparsity check fix this and include it into calculate_stats
 print(
     "Global sparsity: {:.2f}%".format(
         100. * float(
-            np.sum([torch.sum(module.weight == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
+            np.sum([torch.sum(module.weight == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
+            + np.sum([torch.sum(module.bias == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
         / float(
-            np.sum([module.weight.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
+            np.sum([module.weight.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
+            + np.sum([module.bias.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
         )
     )
 
