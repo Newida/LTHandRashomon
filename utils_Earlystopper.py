@@ -5,7 +5,7 @@ class EarlyStopper:
         self.counter = 0
         self.min_val_loss = float('inf')
 
-    def early_stop(self, val_loss):
+    def early_stop_val_loss(self, val_loss):
         if val_loss < self.min_val_loss:
             self.min_val_loss = val_loss
             self.counter = 0

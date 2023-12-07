@@ -1,0 +1,74 @@
+import torch
+import torchvision
+
+class TorchRandomSeed(object):
+    """
+    Class to be used when opening a with clause. On enter sets the random seed for torch based sampling, restores previous state on exit
+    """
+    def __init__(self, seed):
+        self.seed = seed
+        self.prev_random_state = None
+
+    def __enter__(self):
+        self.prev_random_state = torch.get_rng_state()
+        torch.set_rng_state(torch.manual_seed(self.seed).get_state())
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        torch.set_rng_state(self.prev_random_state)
+
+class DataLoaderHelper():
+    """Custom shuffeling and custom splitting into train and validation set"""
+
+    def __init__(self, split_seed, dataorder_seed, datasethparams):
+        self.datasethparams = datasethparams
+        self.trainloader = None
+        self.testloader = None
+        self.validationloader = None
+        self.trainloader = None
+        
+    def split_train_val(self, trainset, val_set_size=5000):
+        trainset, valset = torch.utils.data.random_split(trainset,
+                [len(trainset)-val_set_size, val_set_size], generator=self.split_generator)
+        return trainset, valset
+    
+    def get_trainset(self, safe_trainset_path, transform):
+        trainset = torchvision.datasets.CIFAR10(root=safe_trainset_path, train=True,
+                                        download=True, transform=transform)
+        return trainset
+
+    def get_testset(self, safe_testset_path, transform):
+        testset = torchvision.datasets.CIFAR10(root=safe_testset_path, train=False,
+                                       download=True, transform=transform)
+        return testset
+    
+    def get_test_loader(self, testset):
+        testloader = torch.utils.data.DataLoader(testset,
+                                                  batch_size=self.datasethparams.batch_size,
+                                         shuffle=False, num_workers=2)
+        self.testloader = testloader
+        return testloader
+    
+    def get_validation_loader(self, valset):
+        valloader = torch.utils.data.DataLoader(valset,
+                                                  batch_size=self.datasethparams.batch_size,
+                                         shuffle=False, num_workers=2)
+        self.valloader = valloader
+        return valloader
+    
+    def loop_dataloader(self, dataloader):
+        while True:
+            for x in iter(dataloader):
+                yield
+    
+    def get_train_loader(self, trainset):
+        trainloader = torch.utils.data.DataLoader(trainset,
+                                                  batch_size=self.datasethparams.batch_size,
+                                         shuffle=True, num_workers=2)
+        self.trainloader = trainloader
+        return self.loop_dataloader(trainloader)
+    
+    def iter_to_epochs(self, num_iters):
+         return num_iters / (len(self.trainloader) * self.datasethparams.batch_size)
+    
+    def epochs_to_iter(self, num_epochs):
+         return num_epochs * (len(self.trainloader) * self.datasethparams.batch_size)

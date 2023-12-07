@@ -52,7 +52,7 @@ class Hparams(object):
             self.milestone_steps = milestone_steps #at which epoch to drop the learning rate
             #measured in epochs
             self.gamma = gamma #the amount the learning rate drops when reaching a milestone
-    
+
     class PruningHparams():
         def __init__(self, pruning_ratio = 0.2, method = "l1") -> None:
             self.pruning_ratio = pruning_ratio

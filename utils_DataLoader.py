@@ -42,6 +42,10 @@ class DataLoaderHelper():
                                   self.train_generator)
         return trainloader
 
+    def loop_dataloader(dataloader):
+        while True:
+            for x in iter(dataloader):
+                yield
 
 class TrainLoader(torch.utils.data.DataLoader):
     def __init__(self, dataset, batch_size, train_generator, num_workers=2):

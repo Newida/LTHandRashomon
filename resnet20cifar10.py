@@ -6,7 +6,13 @@ from resnet20 import Resnet_N_W
 from Hparams import Hparams
 from utils_DataLoader import DataLoaderHelper
 from utils_Earlystopper import EarlyStopper
+import utils
 
+try:
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+except NameError or ModuleNotFoundError:
+    pass
 
 #setting the path to store/load dataset cifar10
 workdir = Path.cwd()
@@ -16,37 +22,27 @@ if not data_path.exists():
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+random_state = 0
+with utils.TorchRandomSeed(random_state):
 #data augmentation
-mean = [0.4914, 0.4822, 0.4465]
-std = [0.2023, 0.1994, 0.2010]
-transform = transforms.Compose(
-    [transforms.RandomCrop(32, padding=4),
-     transforms.RandomHorizontalFlip(),
-     transforms.ToTensor(),
-     transforms.Normalize(mean, std)
-     ])
+    mean = [0.4914, 0.4822, 0.4465]
+    std = [0.2023, 0.1994, 0.2010]
+    transform = transforms.Compose(
+        [transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        transforms.Normalize(mean, std)
+        ])
 
-
-
-dataset_hparams = Hparams.DatasetHparams()
-
-#(down)load dataset cifar10
-dataloaderhelper = DataLoaderHelper(0, 0, dataset_hparams)
-
-trainset = dataloaderhelper.get_trainset(data_path, transform)
-testset = dataloaderhelper.get_testset(data_path, transform)
-
-trainset, valset = dataloaderhelper.split_train_val(trainset)
-
-testloader = dataloaderhelper.get_test_loader(testset)
-#valloader = dataloaderhelper.get_validation_loader(valset)
-#trainloader = dataloaderhelper.get_train_loader(trainset)        
-
-valloader = dataloaderhelper.get_validation_loader(valset)
-
-trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=dataset_hparams.batch_size,
-                                         shuffle=True, num_workers=2)
+    dataset_hparams = Hparams.DatasetHparams()
+    #(down)load dataset cifar10
+    dataloaderhelper = DataLoaderHelper(0, 0, dataset_hparams)
+    trainset = dataloaderhelper.get_trainset(data_path, transform)
+    testset = dataloaderhelper.get_testset(data_path, transform)
+    trainset, valset = dataloaderhelper.split_train_val(trainset)
+    trainloader = dataloaderhelper.get_train_loader(trainset)
+    testloader = dataloaderhelper.get_test_loader(testset)
+    valloader = dataloaderhelper.get_validation_loader(valset)
 
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
@@ -65,16 +61,17 @@ early_stopper = EarlyStopper(patience=1, min_delta=0)
 def train(model, training_hparams, trainloader, valloader):
     model.to(device)
     model.train()
-    #not implemented yet
     optimizer = Hparams.get_optimizer(model, training_hparams)
     lr_scheduler = Hparams.get_lr_scheduler(optimizer, training_hparams)
     loss_criterion = Hparams.get_loss_criterion(training_hparams)
     
-    
     #implement early stopping instead
     print("Started training ...")
-    for epoch in range(training_hparams.num_epoch):
-        #trainloader.shuffle(trainloader.get_seed() + epoch)
+    it = 0
+    max_iter = utils.DataLoaderHelper.epochs_to_iter(training_hparams.num_epoch)
+    for X_batch, y_batch in trainloader:
+        if it == max_iter:
+            break
         #shuffle data for each epoch,
         #usually done by setting shuffle = True in the dataloader
         #but not in our case since we have a custom one
@@ -97,7 +94,7 @@ def train(model, training_hparams, trainloader, valloader):
                 
                 """#check early_stopping
                 val_loss = get_val_loss(model, valloader, loss_criterion)
-                if early_stopper.early_stop(val_loss):
+                if early_stopper.early_stop_val_loss(val_loss):
                     print("Stopped early")
                     break
                 """

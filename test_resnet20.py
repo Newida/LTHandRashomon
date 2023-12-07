@@ -208,14 +208,3 @@ print(
             + np.sum([module.bias.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
         )
     )
-
-unpruned = 0
-pruned = 0
-for module in Resnet_N_W.get_list_of_all_modules(resnet20model):
-    for name, _ in list(module.named_buffers()):
-        if not "weight_mask" == name:
-            unpruned += 1
-        else:
-            pruned += 1
-print("pruned:", pruned)
-print("unpruned:", unpruned)
