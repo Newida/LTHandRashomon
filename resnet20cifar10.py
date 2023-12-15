@@ -68,12 +68,11 @@ def train(model, rewind_iter, training_hparams, trainloader, valloader):
     running_loss = 0.0
     while True:
         for data in trainloader:
-            if iter == rewind_iter: #create rewind point
+            #create rewind point
+            if iter == rewind_iter:
                 rewind_point = Resnet_N_W(model.plan, model.initializer, model.outputs)
                 rewind_point.load_state_dict(model.state_dict())
-            #shuffle data for each epoch,
-            #usually done by setting shuffle = True in the dataloader
-            #but not in our case since we have a custom one
+            
             inputs, labels = data
             inputs = inputs.to(device)
             labels = labels.to(device)
