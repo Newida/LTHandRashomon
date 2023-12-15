@@ -5,7 +5,7 @@ from pathlib import Path
 import torchvision
 import torchvision.transforms as transforms
 from Hparams import Hparams
-from utils_DataLoader import DataLoaderHelper
+from utils import DataLoaderHelper
 
 #test is_valid_model_name:
 #false cases

@@ -28,7 +28,7 @@ class DataLoaderHelper():
         
     def split_train_val(self, trainset, val_set_size=5000):
         trainset, valset = torch.utils.data.random_split(trainset,
-                [len(trainset)-val_set_size, val_set_size], generator=self.split_generator)
+                [len(trainset)-val_set_size, val_set_size])
         return trainset, valset
     
     def get_trainset(self, safe_trainset_path, transform):
@@ -55,20 +55,32 @@ class DataLoaderHelper():
         self.valloader = valloader
         return valloader
     
-    def loop_dataloader(self, dataloader):
-        while True:
-            for x in iter(dataloader):
-                yield
-    
     def get_train_loader(self, trainset):
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=self.datasethparams.batch_size,
                                          shuffle=True, num_workers=2)
         self.trainloader = trainloader
-        return self.loop_dataloader(trainloader)
+        return trainloader
     
     def iter_to_epochs(self, num_iters):
          return num_iters / (len(self.trainloader) * self.datasethparams.batch_size)
     
     def epochs_to_iter(self, num_epochs):
          return num_epochs * (len(self.trainloader) * self.datasethparams.batch_size)
+    
+class EarlyStopper:
+    def __init__(self, patience = 1, min_delta = 0) -> None:
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.min_val_loss = float('inf')
+
+    def early_stop_val_loss(self, val_loss):
+        if val_loss < self.min_val_loss:
+            self.min_val_loss = val_loss
+            self.counter = 0
+        elif val_loss > (self.min_val_loss + self.min_delta):
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False

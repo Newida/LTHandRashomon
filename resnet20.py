@@ -47,7 +47,7 @@ class Resnet_N_W(nn.Module):
         for segment_index, (filters, num_blocks) in enumerate(plan):
             for block_index in range(num_blocks):
                 downsample = segment_index > 0 and block_index == 0
-                blocks.append(Resnet_N_W.Block(current_filters, filters, downsample)) #TODO: Resnet_N_W.Block wrong? instead just Block? why not visible
+                blocks.append(Resnet_N_W.Block(current_filters, filters, downsample))
                 current_filters = filters
 
         self.blocks = nn.Sequential(*blocks)
@@ -87,23 +87,6 @@ class Resnet_N_W(nn.Module):
  
     @staticmethod
     def get_model_from_name(model_name, initializer="kaiming_normal",  outputs=10):
-        """The naming scheme for a ResNet is 'resnet_N[_W]'.
-
-        The ResNet is structured as an initial convolutional layer followed by three "segments"
-        and a linear output layer. Each segment consists of D blocks. Each block is two
-        convolutional layers surrounded by a residual connection. Each layer in the first segment
-        has W filters, each layer in the second segment has 32W filters, and each layer in the
-        third segment has 64W filters.
-
-        The name of a ResNet is 'cifar_resnet_N[_W]', where W is as described above.
-        N is the total number of layers in the network: 2 + 6D.
-        The default value of W is 16 if it isn't provided.
-
-        For example, ResNet-20 has 20 layers. Exclusing the first convolutional layer and the final
-        linear layer, there are 18 convolutional layers in the blocks. That means there are nine
-        blocks, meaning there are three blocks per segment. Hence, D = 3.
-        The name of the network would be 'cifar_resnet_20' or 'cifar_resnet_20_16'.
-        """
         if not Resnet_N_W.is_valid_initalizer(initializer):
             raise ValueError('Invalid initializer. Must be either kaiming_normal or kaiming_uniform')
         
@@ -175,9 +158,6 @@ class Resnet_N_W(nn.Module):
         
     def prune(self, prune_ratio, method):
         #pytroch pruning tutorials
-        #LTH paper says: Do not prune fully-connected output layer
-        #and downsampling residual connections but do i care about this?
-        #prune batchnorm?
         if method == "l1":
             prune_method = prune.L1Unstructured
         elif method == "random":

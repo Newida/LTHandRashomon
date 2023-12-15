@@ -4,8 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 from resnet20 import Resnet_N_W
 from Hparams import Hparams
-from utils_DataLoader import DataLoaderHelper
-from utils_Earlystopper import EarlyStopper
+from utils import EarlyStopper
 import utils
 
 try:
@@ -36,7 +35,7 @@ with utils.TorchRandomSeed(random_state):
 
     dataset_hparams = Hparams.DatasetHparams()
     #(down)load dataset cifar10
-    dataloaderhelper = DataLoaderHelper(0, 0, dataset_hparams)
+    dataloaderhelper = utils.DataLoaderHelper(0, 0, dataset_hparams)
     trainset = dataloaderhelper.get_trainset(data_path, transform)
     testset = dataloaderhelper.get_testset(data_path, transform)
     trainset, valset = dataloaderhelper.split_train_val(trainset)
@@ -67,16 +66,14 @@ def train(model, training_hparams, trainloader, valloader):
     
     #implement early stopping instead
     print("Started training ...")
-    it = 0
-    max_iter = utils.DataLoaderHelper.epochs_to_iter(training_hparams.num_epoch)
-    for X_batch, y_batch in trainloader:
-        if it == max_iter:
-            break
-        #shuffle data for each epoch,
-        #usually done by setting shuffle = True in the dataloader
-        #but not in our case since we have a custom one
-        running_loss = 0.0
-        for i, data in enumerate(trainloader):
+    iter = 0
+    max_iter = dataloaderhelper.epochs_to_iter(training_hparams.num_epoch)
+    running_loss = 0.0
+    while iter < max_iter:
+        for data in trainloader:
+            #shuffle data for each epoch,
+            #usually done by setting shuffle = True in the dataloader
+            #but not in our case since we have a custom one
             inputs, labels = data
             inputs = inputs.to(device)
             labels = labels.to(device)
@@ -88,8 +85,8 @@ def train(model, training_hparams, trainloader, valloader):
             optimizer.step()
 
             running_loss += loss.item()
-            if i % 100 == 0:
-                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
+            if iter % 100 == 0:
+                print(f'[{iter}, {iter + 1:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
                 
                 """#check early_stopping
@@ -98,9 +95,8 @@ def train(model, training_hparams, trainloader, valloader):
                     print("Stopped early")
                     break
                 """
-
-        lr_scheduler.step()
-        
+            lr_scheduler.step()
+            iter += 1
 
 def get_val_loss(model, valloader, loss_criterion):
     with torch.no_grad():
@@ -119,7 +115,6 @@ def imp(model, training_hparams, pruning_hparams, saving_models_path,
     #TODO: replace pruning level by early stopping
     #TODO: implement warum_up before rewind point
     #TODO: Add calculation of statistics
-    # create new warumploader that does iterations not epochs as seen in youtube video
     #create rewind point
     rewind_point = Resnet_N_W(model.plan, model.initializer, model.outputs)
     rewind_point.load_state_dict(model.state_dict())
