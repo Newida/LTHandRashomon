@@ -56,6 +56,8 @@ def train(model, rewind_iter, training_hparams, trainloader, valloader):
     optimizer = Hparams.get_optimizer(model, training_hparams)
     lr_scheduler = Hparams.get_lr_scheduler(optimizer, training_hparams)
     loss_criterion = Hparams.get_loss_criterion(training_hparams)
+    #reset generator of trainloader to achive same data_order during training
+    dataloaderhelper.reset_trainloader_generator(trainloader)
     
     #implement early stopping instead
     iter = 0

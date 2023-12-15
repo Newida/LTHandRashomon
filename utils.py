@@ -20,12 +20,14 @@ class TorchRandomSeed(object):
 class DataLoaderHelper():
     """Custom shuffeling and custom splitting into train and validation set"""
 
-    def __init__(self, split_seed, datasethparams):
+    def __init__(self, split_seed, data_order_seed, datasethparams):
         self.datasethparams = datasethparams
         self.trainloader = None
         self.testloader = None
         self.validationloader = None
         self.trainloader = None
+        self.data_order_generator = None
+        self.data_order_seed = data_order_seed
         
     def split_train_val(self, trainset, val_set_size=5000):
         trainset, valset = torch.utils.data.random_split(trainset,
@@ -61,7 +63,20 @@ class DataLoaderHelper():
                                                   batch_size=self.datasethparams.batch_size,
                                          shuffle=True, num_workers=2)
         self.trainloader = trainloader
+        #make data order determinisitc
+        #1. get random_sampler of train loader
+        random_sampler = trainloader.sampler
+        #2. initialize a generator
+        generator = torch.Generator()
+        generator.manual_seed(self.data_order_seed)
+        #3. pass generator to sampler
+        random_sampler.generator = generator
         return trainloader
+    
+    def reset_trainloader_generator(self, trainloader):
+        random_sampler = trainloader.sampler
+        generator = trainloader.sampler.generator
+        generator.manual_seed(self.data_order_seed)
     
     def iter_to_epochs(self, num_iters):
          return num_iters / len(self.trainloader)
