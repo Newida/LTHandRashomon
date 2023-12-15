@@ -21,7 +21,8 @@ if not data_path.exists():
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-random_state = 0
+random_state = 0 #TODO: add to commandline arguments later
+
 with utils.TorchRandomSeed(random_state):
 #data augmentation
     mean = [0.4914, 0.4822, 0.4465]
@@ -83,7 +84,7 @@ def train(model, rewind_iter, training_hparams, trainloader, valloader):
 
             running_loss += loss.item()
             if iter % 100 == 0:
-                print(f'[{iter}, {iter:5d}] loss: {running_loss / 2000:.3f}')
+                print(f'[{iter}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
                 
                 """#check early_stopping
@@ -95,8 +96,7 @@ def train(model, rewind_iter, training_hparams, trainloader, valloader):
             lr_scheduler.step()
             iter += 1
             if iter >= max_iter:
-                break
-    return rewind_point
+                return rewind_point
 
 def get_val_loss(model, valloader, loss_criterion):
     with torch.no_grad():
@@ -113,22 +113,19 @@ def imp(model, training_hparams, pruning_hparams, saving_models_path,
         trainloader, valloader,
          max_pruning_level=12, rewind_iter=0):
     #TODO: replace pruning level by early stopping
-    #TODO: implement warum_up before rewind point
     #TODO: Add calculation of statistics
-    #save initial model
-    torch.save(model.state_dict(), saving_models_path / "resnet-0.pth")
-    rewind_point = None
-    for L in range(max_pruning_level):
-        #do training
-        if L < 1:
-            rewind_point = train(
-                model,
-                rewind_iter,
-                training_hparams,
-                trainloader,
-                valloader
-            )
-        else:
+    with utils.TorchRandomSeed(random_state):
+        #save initial model
+        torch.save(model.state_dict(), saving_models_path / "resnet-0.pth")
+        rewind_point = train(
+                    model,
+                    rewind_iter,
+                    training_hparams,
+                    trainloader,
+                    valloader
+                )
+        for L in range(1, max_pruning_level):
+            #do training
             train(
                 model,
                 rewind_iter,
@@ -136,14 +133,14 @@ def imp(model, training_hparams, pruning_hparams, saving_models_path,
                 trainloader,
                 valloader
             )
-        #pruning
-        model.prune(
-            prune_ratio = pruning_hparams.pruning_ratio,
-            method = pruning_hparams.pruning_method
-        )
-        torch.save(model.state_dict(), saving_models_path / ("resnet-" + str(L + 1) + ".pth"))
-        #rewind
-        model.rewind(rewind_point)
+            #pruning
+            model.prune(
+                prune_ratio = pruning_hparams.pruning_ratio,
+                method = pruning_hparams.pruning_method
+            )
+            torch.save(model.state_dict(), saving_models_path / ("resnet-" + str(L + 1) + ".pth"))
+            #rewind
+            model.rewind(rewind_point)
 
 def calculate_stats():
     #TODO: implement
@@ -180,7 +177,7 @@ imp(
     trainloader,
     valloader,
     max_pruning_level = 1,
-    rewind_iter=2
+    rewind_iter = 20
     )
 end = time.time()
 print("Time of IMP:", end - start)
