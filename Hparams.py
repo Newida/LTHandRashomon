@@ -1,34 +1,11 @@
 import torch
 
-#hyper parameters taken from unmaksing the lth 
-#training hyperparameters
-#optimizer_name='sgd'
-#momentum=0.9
-#milestone_steps='80ep,120ep'
-#lr=0.1
-#gamma=0.1
-#weight_decay=1e-4
-#training_steps='160ep'
-#data_order_seed = 0
-#pruning hyperparemeters
-#pruning_fraction = 0.2
-#dataset hyperparameters
-#batch_size = 128
-#model hyperparameters
-#model_initializer='kaiming_normal'
-#batchnorm_init='uniform' TODO: What does that mean? How is this implemented by frankle? 
-#rewind_points = [0, 250, 2000]
-#loss = CrossEntropyLoss
-
 class Hparams(object):
     """Collection of all hyperparameters used during training."""
     class DatasetHparams():
         def __init__(self, batch_size = 128) -> None:
             self.batch_size = batch_size
-        #TODO: add missing:
-        # transformation_seed
-        # data_augmentation methods
-        # otherstuff see online
+        
     
     class TrainingHparams():
         def __init__(self, optimizer_name = "sgd", lr=0.1,
@@ -37,10 +14,6 @@ class Hparams(object):
                        weight_decay=1e-4, loss_criterion = "crossentropy",
                          num_epoch = 160,
                          milestone_steps = [80, 120]) -> None:
-            #TODO: find out what: nosterov is
-            #TODO: replace num_epoch by early stopping
-            #TODO: add missing hparams: 
-            #training_steps, neserov_momentum, milsetone_steps, warmup_steps
             self.optimizer_name = optimizer_name
             self.lr = lr
             self.training_steps = training_steps

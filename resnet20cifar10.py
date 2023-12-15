@@ -35,7 +35,7 @@ with utils.TorchRandomSeed(random_state):
 
     dataset_hparams = Hparams.DatasetHparams()
     #(down)load dataset cifar10
-    dataloaderhelper = utils.DataLoaderHelper(0, 0, dataset_hparams)
+    dataloaderhelper = utils.DataLoaderHelper(0, dataset_hparams)
     trainset = dataloaderhelper.get_trainset(data_path, transform)
     testset = dataloaderhelper.get_testset(data_path, transform)
     trainset, valset = dataloaderhelper.split_train_val(trainset)
@@ -43,21 +43,13 @@ with utils.TorchRandomSeed(random_state):
     testloader = dataloaderhelper.get_test_loader(testset)
     valloader = dataloaderhelper.get_validation_loader(valset)
 
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-#create model
-plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
-resnet20model = Resnet_N_W(plan, initializer, outputs)
-#naming convention: resnet-N-W_<num_epoch>_<1.milestone>_<2.milestone>
-
 #do training 
 #TODO: be wary for the randomness in the training
 # as it is important to identify different winning tickets later
 # identify randomness: dataorder, TODO: find more
 
 early_stopper = EarlyStopper(patience=1, min_delta=0)
-def train(model, training_hparams, trainloader, valloader):
+def train(model, rewind_iter, training_hparams, trainloader, valloader):
     model.to(device)
     model.train()
     optimizer = Hparams.get_optimizer(model, training_hparams)
@@ -65,12 +57,17 @@ def train(model, training_hparams, trainloader, valloader):
     loss_criterion = Hparams.get_loss_criterion(training_hparams)
     
     #implement early stopping instead
-    print("Started training ...")
     iter = 0
     max_iter = dataloaderhelper.epochs_to_iter(training_hparams.num_epoch)
+    if rewind_iter > max_iter:
+        raise ValueError("rewind_iter must be smaller than " + str(max_iter))
+    print("Started training for " + str(max_iter) + " iterations ...")
     running_loss = 0.0
-    while iter < max_iter:
+    while True:
         for data in trainloader:
+            if iter == rewind_iter: #create rewind point
+                rewind_point = Resnet_N_W(model.plan, model.initializer, model.outputs)
+                rewind_point.load_state_dict(model.state_dict())
             #shuffle data for each epoch,
             #usually done by setting shuffle = True in the dataloader
             #but not in our case since we have a custom one
@@ -86,7 +83,7 @@ def train(model, training_hparams, trainloader, valloader):
 
             running_loss += loss.item()
             if iter % 100 == 0:
-                print(f'[{iter}, {iter + 1:5d}] loss: {running_loss / 2000:.3f}')
+                print(f'[{iter}, {iter:5d}] loss: {running_loss / 2000:.3f}')
                 running_loss = 0.0
                 
                 """#check early_stopping
@@ -97,6 +94,9 @@ def train(model, training_hparams, trainloader, valloader):
                 """
             lr_scheduler.step()
             iter += 1
+            if iter >= max_iter:
+                break
+    return rewind_point
 
 def get_val_loss(model, valloader, loss_criterion):
     with torch.no_grad():
@@ -111,23 +111,31 @@ def get_val_loss(model, valloader, loss_criterion):
 
 def imp(model, training_hparams, pruning_hparams, saving_models_path,
         trainloader, valloader,
-         max_pruning_level=12, warmup_iter=0):
+         max_pruning_level=12, rewind_iter=0):
     #TODO: replace pruning level by early stopping
     #TODO: implement warum_up before rewind point
     #TODO: Add calculation of statistics
-    #create rewind point
-    rewind_point = Resnet_N_W(model.plan, model.initializer, model.outputs)
-    rewind_point.load_state_dict(model.state_dict())
     #save initial model
     torch.save(model.state_dict(), saving_models_path / "resnet-0.pth")
+    rewind_point = None
     for L in range(max_pruning_level):
         #do training
-        train(
-            model,
-            training_hparams,
-            trainloader,
-            valloader
-        )
+        if L < 1:
+            rewind_point = train(
+                model,
+                rewind_iter,
+                training_hparams,
+                trainloader,
+                valloader
+            )
+        else:
+            train(
+                model,
+                rewind_iter,
+                training_hparams,
+                trainloader,
+                valloader
+            )
         #pruning
         model.prune(
             prune_ratio = pruning_hparams.pruning_ratio,
@@ -153,6 +161,15 @@ if not saving_models_path.exists():
 training_hparams = Hparams.TrainingHparams(num_epoch=1, milestone_steps=[2])
 pruning_hparams = Hparams.PruningHparams()
 
+classes = ('plane', 'car', 'bird', 'cat',
+           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+
+#create model
+plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
+resnet20model = Resnet_N_W(plan, initializer, outputs)
+#naming convention: resnet-N-W_<num_epoch>_<1.milestone>_<2.milestone>
+
+
 import time
 start = time.time()
 imp(
@@ -162,7 +179,8 @@ imp(
     saving_models_path,
     trainloader,
     valloader,
-    max_pruning_level = 3
+    max_pruning_level = 1,
+    rewind_iter=2
     )
 end = time.time()
 print("Time of IMP:", end - start)

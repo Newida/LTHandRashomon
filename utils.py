@@ -1,5 +1,6 @@
 import torch
 import torchvision
+import numpy as np
 
 class TorchRandomSeed(object):
     """
@@ -19,7 +20,7 @@ class TorchRandomSeed(object):
 class DataLoaderHelper():
     """Custom shuffeling and custom splitting into train and validation set"""
 
-    def __init__(self, split_seed, dataorder_seed, datasethparams):
+    def __init__(self, split_seed, datasethparams):
         self.datasethparams = datasethparams
         self.trainloader = None
         self.testloader = None
@@ -63,10 +64,10 @@ class DataLoaderHelper():
         return trainloader
     
     def iter_to_epochs(self, num_iters):
-         return num_iters / (len(self.trainloader) * self.datasethparams.batch_size)
+         return num_iters / len(self.trainloader)
     
     def epochs_to_iter(self, num_epochs):
-         return num_epochs * (len(self.trainloader) * self.datasethparams.batch_size)
+         return num_epochs * len(self.trainloader)
     
 class EarlyStopper:
     def __init__(self, patience = 1, min_delta = 0) -> None:
