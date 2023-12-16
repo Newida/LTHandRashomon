@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn.utils import prune
+from utils import TorchRandomSeed
 
 class Resnet_N_W(nn.Module):
     """Resnet_N_W as designed for CIFAR-10."""
@@ -33,15 +34,13 @@ class Resnet_N_W(nn.Module):
             out += self.shortcut(x)
             return F.relu(out)
 
-    def __init__(self, plan, initializer, outputs=None):
+    def __init__(self, plan, initializer, weight_seed, outputs):
         super(Resnet_N_W, self).__init__()
-        outputs = outputs or 10
-
-        # Initial convolution.
+        
+        # Initial convolution
         current_filters = plan[0][0]
         self.conv = nn.Conv2d(3, current_filters, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn = nn.BatchNorm2d(current_filters)
-
         # The subsequent blocks of the ResNet.
         blocks = []
         for segment_index, (filters, num_blocks) in enumerate(plan):
@@ -52,18 +51,21 @@ class Resnet_N_W(nn.Module):
 
         self.blocks = nn.Sequential(*blocks)
 
-        # Final fc layer. Size = number of filters in last segment.
-        self.fc = nn.Linear(plan[-1][0], outputs)
-        self.criterion = nn.CrossEntropyLoss()
+        with TorchRandomSeed(weight_seed):
+            # Final fc layer. Size = number of filters in last segment.
+            self.fc = nn.Linear(plan[-1][0], outputs)
+            self.criterion = nn.CrossEntropyLoss()    
+            # Initialize
+            self.apply(initializer)
 
-        # Initialize
-        self.apply(initializer)
         # Helpful attributes that describe state and structure of network
-        self.initial_state = self.state_dict()
-        self.module_list = [self.conv, self.bn, self.blocks, self.fc]
         self.plan = plan
         self.initializer = initializer
-        self.outputs = outputs
+        self.outputs = outputs 
+        self.weight_seed = weight_seed   
+        self.initial_state = self.state_dict()
+        self.module_list = [self.conv, self.bn, self.blocks, self.fc]
+        
 
     def forward(self, x):
         out = F.relu(self.bn(self.conv(x)))

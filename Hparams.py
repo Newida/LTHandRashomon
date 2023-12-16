@@ -5,7 +5,10 @@ class Hparams(object):
     class DatasetHparams():
         def __init__(self, batch_size = 128) -> None:
             self.batch_size = batch_size
-        
+
+    class ModelHparams():
+        def __init__(self, initialization_seed = 0) -> None:
+            self.initialization_seed = initialization_seed
     
     class TrainingHparams():
         def __init__(self, optimizer_name = "sgd", lr=0.1,

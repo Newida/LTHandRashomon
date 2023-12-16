@@ -197,7 +197,7 @@ print("pruned:", pruned)
 print("unpruned:", unpruned)
 print("total: ", pruned + unpruned)
 
-#sparsity check fix this and include it into calculate_stats
+"""#sparsity check fix this and include it into calculate_stats
 print(
     "Global sparsity: {:.2f}%".format(
         100. * float(
@@ -208,3 +208,79 @@ print(
             + np.sum([module.bias.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
         )
     )
+    """
+
+#How to reproduces the a single shuffeling
+dataloader = torch.utils.data.DataLoader(trainset, shuffle = True, batch_size = 128)
+random_sampler = dataloader.sampler
+print(type(random_sampler))
+generator = torch.Generator()
+generator.manual_seed(0)
+random_sampler.generator = generator
+print(random_sampler.generator.get_state())
+
+all_indices1 = list()
+for inidces in dataloader.batch_sampler:
+    all_indices1.append(inidces)
+
+print(len(all_indices1))
+generator.manual_seed(0)
+print(random_sampler.generator.get_state())
+all_indices2 = list()
+for inidces in dataloader.batch_sampler:
+    all_indices2.append(inidces)
+
+diff = 0
+for i, j in zip(all_indices1, all_indices2):
+    if not np.isclose(np.linalg.norm(np.array(i) - np.array(j)), 0):
+        diff += 1
+    else:
+        diff += 0
+
+print("Diff: ", diff)
+print(all_indices1[0][:10])
+print(all_indices2[0][:10])
+
+
+print("Testing for sequence now: ")
+#How to reproduces the a training shuffeling sequence
+dataloader = torch.utils.data.DataLoader(trainset, shuffle = True, batch_size = 128)
+random_sampler = dataloader.sampler
+generator = torch.Generator()
+generator.manual_seed(0)
+random_sampler.generator = generator
+
+all_indices1 = list([list() for i in range(10)])
+for epoch in range(10):
+    for inidces in dataloader.batch_sampler:
+        all_indices1[epoch].append(inidces)
+
+diff_between_epochs = 0
+for i, j in zip(all_indices1[0], all_indices1[1]):
+    if not np.isclose(np.linalg.norm(np.array(i) - np.array(j)), 0):
+        diff_between_epochs += 1
+    else:
+        diff_between_epochs += 0
+print("Diff between epochs:", diff_between_epochs)
+print(all_indices1[0][0][:10])
+print(all_indices1[1][0][:10])
+
+random_sampler = dataloader.sampler
+generator = dataloader.sampler.generator
+generator.manual_seed(0)
+
+all_indices2 = list([list() for i in range(10)])
+for epoch in range(10):
+    for inidces in dataloader.batch_sampler:
+        all_indices2[epoch].append(inidces)
+
+diff_between_all_epochs = 0
+for epoch in range(10):
+    for i, j in zip(all_indices1[epoch], all_indices2[epoch]):
+        if not np.isclose(np.linalg.norm(np.array(i) - np.array(j)), 0):
+            diff_between_all_epochs += 1
+        else:
+            diff_between_all_epochs += 0
+print("Difference over all: ", diff_between_all_epochs)
+print(all_indices2[0][0][:10])
+print(all_indices2[1][0][:10])

@@ -36,7 +36,7 @@ with utils.TorchRandomSeed(random_state):
 
     dataset_hparams = Hparams.DatasetHparams()
     #(down)load dataset cifar10
-    dataloaderhelper = utils.DataLoaderHelper(0, dataset_hparams)
+    dataloaderhelper = utils.DataLoaderHelper(split_seed=0, data_order_seed=0, datasethparams=dataset_hparams)
     trainset = dataloaderhelper.get_trainset(data_path, transform)
     testset = dataloaderhelper.get_testset(data_path, transform)
     trainset, valset = dataloaderhelper.split_train_val(trainset)
@@ -158,15 +158,15 @@ if not saving_models_path.exists():
 #initialize hyperparemeters
 training_hparams = Hparams.TrainingHparams(num_epoch=1, milestone_steps=[2])
 pruning_hparams = Hparams.PruningHparams()
+model_hparams = Hparams.ModelHparams()
 
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
 #create model
 plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
-resnet20model = Resnet_N_W(plan, initializer, outputs)
+resnet20model = Resnet_N_W(plan, initializer, model_hparams.initialization_seed, outputs)
 #naming convention: resnet-N-W_<num_epoch>_<1.milestone>_<2.milestone>
-
 
 import time
 start = time.time()
