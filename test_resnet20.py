@@ -284,3 +284,22 @@ for epoch in range(10):
 print("Difference over all: ", diff_between_all_epochs)
 print(all_indices2[0][0][:10])
 print(all_indices2[1][0][:10])
+
+#Test initialization seed
+plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
+resnet1 = Resnet_N_W(plan, initializer, 0, outputs)
+list1 = Resnet_N_W.get_list_of_all_modules(resnet1)
+
+resnet2 = Resnet_N_W(plan, initializer, 0, outputs)
+list2 = Resnet_N_W.get_list_of_all_modules(resnet2)
+
+for module1, module2 in zip(list1, list2):
+    if torch.linalg.norm(module1.weight - module2.weight) > 1e-10:
+        print("Error networks are not the same")
+        break
+    try:
+        if torch.linalg.norm(module1.bias - module2.bias) > 1e-10:
+            print("Error networks are not the same")
+            break
+    except Exception as e:
+         pass
