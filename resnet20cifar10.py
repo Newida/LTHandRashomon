@@ -70,7 +70,7 @@ def train(model, rewind_iter, training_hparams, trainloader, valloader):
         for data in trainloader:
             #create rewind point
             if iter == rewind_iter:
-                rewind_point = Resnet_N_W(model.plan, model.initializer, model.outputs)
+                rewind_point = Resnet_N_W(model.plan, model.initializer, 0, model.outputs)
                 rewind_point.load_state_dict(model.state_dict())
             
             inputs, labels = data
