@@ -62,7 +62,7 @@ def e1_train_val_loss():
           0,
           dataloaderhelper,
           training_hparams,
-          True
+          False
           )
     #4. Plot some results
     return all_stats
@@ -72,11 +72,11 @@ start = time.time()
 stats = e1_train_val_loss()
 print(stats)
 end = time.time()
-print("Time of e1 with 10 workers:", end - start)
+print("Time of e1 with 1 workers:", end - start)
 import pickle
 
-with open('outfile.pickle', 'wb') as fp:
+with open('outfile_withoutstats.pickle', 'wb') as fp:
     pickle.dump(stats, fp)
 
-with open ('outfile.pickle', 'rb') as fp:
+with open ('outfile_withoutstats.pickle', 'rb') as fp:
     itemlist = pickle.load(fp)

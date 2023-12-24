@@ -61,7 +61,7 @@ class DataLoaderHelper():
     def get_train_loader(self, trainset):
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=self.datasethparams.batch_size,
-                                         shuffle=True, num_workers=10)
+                                         shuffle=True, num_workers=1)
         #setting num_workers to 1 to avoid Randomness during mulit-process data loading
         self.trainloader = trainloader
         #make data order determinisitc

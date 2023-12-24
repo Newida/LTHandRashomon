@@ -107,11 +107,13 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
 
                 if early_stopper.early_stop_val_loss(1000):
                     print("Stopped early")
+                    print("Trained for " + str(iter) + " Iterations.")
                     return rewind_point, all_stats
 
             lr_scheduler.step()
             iter += 1
             if iter >= max_iter:
+                print("Trained for " + str(iter) + " Iterations.")
                 return rewind_point, all_stats
 
 
