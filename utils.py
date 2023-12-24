@@ -47,21 +47,22 @@ class DataLoaderHelper():
     def get_test_loader(self, testset):
         testloader = torch.utils.data.DataLoader(testset,
                                                   batch_size=self.datasethparams.batch_size,
-                                         shuffle=False, num_workers=2)
+                                         shuffle=False, num_workers=10)
         self.testloader = testloader
         return testloader
     
     def get_validation_loader(self, valset):
         valloader = torch.utils.data.DataLoader(valset,
                                                   batch_size=self.datasethparams.batch_size,
-                                         shuffle=False, num_workers=2)
+                                         shuffle=False, num_workers=10)
         self.valloader = valloader
         return valloader
     
     def get_train_loader(self, trainset):
         trainloader = torch.utils.data.DataLoader(trainset,
                                                   batch_size=self.datasethparams.batch_size,
-                                         shuffle=True, num_workers=2)
+                                         shuffle=True, num_workers=10)
+        #setting num_workers to 1 to avoid Randomness during mulit-process data loading
         self.trainloader = trainloader
         #make data order determinisitc
         #1. get random_sampler of train loader

@@ -13,13 +13,11 @@ try:
 except NameError or ModuleNotFoundError:
     pass
 
-#setting the path to store/load dataset cifar10
+"""#setting the path to store/load dataset cifar10
 workdir = Path.cwd()
 data_path = workdir / "datasets" / "cifar10"
 if not data_path.exists():
     data_path.mkdir(parents=True)
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 random_state = 0 #TODO: add to commandline arguments later
 
@@ -43,23 +41,28 @@ with utils.TorchRandomSeed(random_state):
     trainloader = dataloaderhelper.get_train_loader(trainset)
     testloader = dataloaderhelper.get_test_loader(testset)
     valloader = dataloaderhelper.get_validation_loader(valset)
-
+"""
 #do training 
 #TODO: be wary for the randomness in the training
 # as it is important to identify different winning tickets later
 # identify randomness: dataorder, TODO: find more
 
+#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 early_stopper = EarlyStopper(patience=1, min_delta=0)
-def train(model, rewind_iter, training_hparams, trainloader, valloader):
+def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
+            calc_stats=True):
     model.to(device)
     model.train()
     optimizer = Hparams.get_optimizer(model, training_hparams)
     lr_scheduler = Hparams.get_lr_scheduler(optimizer, training_hparams)
     loss_criterion = Hparams.get_loss_criterion(training_hparams)
+    trainloader = dataloaderhelper.trainloader
+    valloader = dataloaderhelper.valloader
+    testloader = dataloaderhelper.testloader
     #reset generator of trainloader to achive same data_order during training
     dataloaderhelper.reset_trainloader_generator(trainloader)
     
-    #implement early stopping instead
+    all_stats = []
     iter = 0
     max_iter = dataloaderhelper.epochs_to_iter(training_hparams.num_epoch)
     if rewind_iter > max_iter:
@@ -78,52 +81,55 @@ def train(model, rewind_iter, training_hparams, trainloader, valloader):
             labels = labels.to(device)
             
             optimizer.zero_grad()
-            outputs = resnet20model(inputs)
+            outputs = model(inputs)
             loss = loss_criterion(outputs, labels)
             loss.backward()
             optimizer.step()
 
             running_loss += loss.item()
             if iter % 100 == 0:
-                print(f'[{iter}] loss: {running_loss / 2000:.3f}')
+                print(f'[{iter}] loss: {running_loss:.3f}')
                 running_loss = 0.0
-                
-                """#check early_stopping
-                val_loss = get_val_loss(model, valloader, loss_criterion)
-                if early_stopper.early_stop_val_loss(val_loss):
+
+                if calc_stats:
+                    stats = calculate_stats(device, model, loss_criterion,
+                        valloader,
+                        trainloader,
+                        testloader
+                        )
+                    all_stats.append([iter, stats])
+                    #check early_stopping
+                    val_loss = stats[2]
+                    print('[' + str(iter) + '] train_acc: ' + str(stats[1])
+                          + 'val_loss: ' + str(stats[2]) + 'test_acc: ' + str(stats[5]))
+                else:
+                    val_loss = get_loss(device, model, valloader, loss_criterion)
+
+                if early_stopper.early_stop_val_loss(1000):
                     print("Stopped early")
-                    break
-                """
+                    return rewind_point, all_stats
+
             lr_scheduler.step()
             iter += 1
             if iter >= max_iter:
-                return rewind_point
+                return rewind_point, all_stats
 
-def get_val_loss(model, valloader, loss_criterion):
-    with torch.no_grad():
-        cumulated_loss = 0
-        for data in valloader:
-            images, labels = data
-            outputs = model(images)
-            loss = loss_criterion(outputs, labels)
-            cumulated_loss += loss.item()
-            
-    return cumulated_loss
 
-def imp(model, training_hparams, pruning_hparams, saving_models_path,
-        trainloader, valloader,
-         max_pruning_level=12, rewind_iter=0):
+def imp(model, random_state,
+        training_hparams, pruning_hparams, saving_models_path,
+        dataloaderhelper, 
+        max_pruning_level=12, rewind_iter=0):
     #TODO: replace pruning level by early stopping
     #TODO: Add calculation of statistics
     with utils.TorchRandomSeed(random_state):
         #save initial model
         torch.save(model.state_dict(), saving_models_path / "resnet-0.pth")
-        rewind_point = train(
+        rewind_point, all_stats = train(
                     model,
                     rewind_iter,
                     training_hparams,
-                    trainloader,
-                    valloader
+                    dataloaderhelper,
+                    calc_stats = False
                 )
         for L in range(1, max_pruning_level):
             #do training
@@ -131,8 +137,7 @@ def imp(model, training_hparams, pruning_hparams, saving_models_path,
                 model,
                 rewind_iter,
                 training_hparams,
-                trainloader,
-                valloader
+                dataloaderhelper
             )
             #pruning
             model.prune(
@@ -143,10 +148,73 @@ def imp(model, training_hparams, pruning_hparams, saving_models_path,
             #rewind
             model.rewind(rewind_point)
 
-def calculate_stats():
-    #TODO: implement
-    pass
+def get_loss(device, model, dataloader, loss_criterion):
+    with torch.no_grad():
+        cumulated_loss = 0
+        for data in dataloader:
+            images, labels = data
+            images = images.to(device)
+            labels = labels.to(device)
+            
+            outputs = model(images)
+            loss = loss_criterion(outputs, labels)
+            cumulated_loss += loss.item()
+            
+    return cumulated_loss
 
+def get_accuracy(device, model, dataloader):
+    with torch.no_grad():
+        correct = 0
+        total = 0
+        for data in dataloader:
+            images, labels = data
+            images = images.to(device)
+            labels = labels.to(device)
+            
+            outputs = model(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    return correct/total
+
+def get_loss_and_accuracy(device, model, dataloader, loss_criterion):
+    with torch.no_grad():
+        correct = 0
+        total = 0
+        cumulated_loss = 0
+        for data in dataloader:
+            images, labels = data
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+            
+            loss = loss_criterion(outputs, labels)
+            cumulated_loss += loss.item()
+            
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    return cumulated_loss, correct/total
+
+def calculate_stats(device, model, loss_criterion,
+                    valloader,
+                     trainloader,
+                     testloader
+                     ):
+    model.eval()
+    #train statistics
+    train_loss, train_accuracy = get_loss_and_accuracy(device, model, trainloader, loss_criterion)
+    #validation statistics
+    val_loss, val_accuracy = get_loss_and_accuracy(device, model, valloader, loss_criterion)
+    #test statistics
+    test_loss, test_accuracy = get_loss_and_accuracy(device, model, testloader, loss_criterion)
+    model.train()
+
+    return [train_loss, train_accuracy, val_loss, val_accuracy, test_loss, test_accuracy]
+
+"""
 models_path = workdir / "models"
 if not models_path.exists():
     models_path.mkdir(parents=True)
@@ -177,8 +245,10 @@ imp(
     saving_models_path,
     trainloader,
     valloader,
+    testloader,
     max_pruning_level = 1,
     rewind_iter = 20
     )
 end = time.time()
 print("Time of IMP:", end - start)
+"""
