@@ -1,3 +1,4 @@
+import pickle
 import torch
 from pathlib import Path
 import torchvision
@@ -64,7 +65,13 @@ def e1_train_val_loss():
           training_hparams,
           False
           )
-    #4. Plot some results
+    #4. Save model and statistics
+    #TODO: do this properly
+    torch.save(model.state_dict(), saving_models_path / "resnet-0.pth")
+    with open('outfile_withoutstats.pickle', 'wb') as fp:
+        pickle.dump(stats, fp)
+    
+    #5. Plot some results
     return all_stats
 
 import time
@@ -73,7 +80,6 @@ stats = e1_train_val_loss()
 print(stats)
 end = time.time()
 print("Time of e1 with 1 workers:", end - start)
-import pickle
 
 with open('outfile_withoutstats.pickle', 'wb') as fp:
     pickle.dump(stats, fp)

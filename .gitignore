@@ -1,5 +1,7 @@
-*.pyc
-__pycache__
+data
+cifar_net.pth
 datasets
-*.gz
+__pycache__
 models
+scratchpad.py
+privateNotes.txt
