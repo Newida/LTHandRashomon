@@ -14,16 +14,15 @@ class Hparams(object):
             self.outputs = outputs
     
     class TrainingHparams():
-        def __init__(self, optimizer_name = "sgd", lr=0.1,
-                      training_steps = "160ep", data_order_seed = None,
-                       momentum = 0.9, gamma = 0.1, 
-                       weight_decay=1e-4, loss_criterion = "crossentropy",
-                         num_epoch = 160,
-                         milestone_steps = [80, 120]) -> None:
+        def __init__(self, split_seed, data_order_seed, optimizer_name = "sgd", lr=0.1,
+                      momentum = 0.9, gamma = 0.1, 
+                      weight_decay=1e-4, loss_criterion = "crossentropy",
+                      num_epoch = 160,
+                      milestone_steps = [80, 120]) -> None:
             self.optimizer_name = optimizer_name
             self.lr = lr
-            self.training_steps = training_steps
             self.data_order_seed = data_order_seed
+            self.split_seed = split_seed
             self.momentum = momentum
             self.weight_decay = weight_decay
             self.loss_criterion = loss_criterion

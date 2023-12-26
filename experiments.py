@@ -8,6 +8,7 @@ from Hparams import Hparams
 from utils import EarlyStopper
 import utils
 import routines
+import matplotlib.pyplot as plt
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -46,12 +47,15 @@ with utils.TorchRandomSeed(random_state):
     testloader = dataloaderhelper.get_test_loader(testset)
     valloader = dataloaderhelper.get_validation_loader(valset)
 
-early_stopper = EarlyStopper(patience=1, min_delta=0)
+early_stopper = EarlyStopper(patience=10, min_delta=0)
 
 def e1_train_val_loss():
     #initialize network
     #1. Setup hyperparameters
-    training_hparams = Hparams.TrainingHparams(num_epoch=162)
+    training_hparams = Hparams.TrainingHparams(
+        split_seed=dataloaderhelper.split_seed,
+        data_order_seed=dataloaderhelper.data_order_seed,
+        num_epoch=162)
     pruning_hparams = Hparams.PruningHparams()
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
@@ -64,6 +68,7 @@ def e1_train_val_loss():
           0,
           dataloaderhelper,
           training_hparams,
+          early_stopper,
           False
           )
     #4. Save model and statistics
@@ -76,7 +81,22 @@ def e1_train_val_loss():
                              [all_stats],
                              False)
     #5. Plot some results
-    #TODO: next
+    x_iter = []
+    y_running_loss = []
+    y_val_loss = []
+    y_test_acc = []
+    for stats in all_stats:
+        x_iter.append(stats[0])
+        stats = stats[1]
+        y_running_loss.append(stats['running_loss'])
+        y_val_loss.append(stats['val_loss'])
+        #y_running_loss.append(stats['test_acc'])
+
+    plt.plot(x_iter, y_running_loss)
+    plt.savefig("running_loss.png")
+    plt.clf()
+    plt.plot(x_iter, y_val_loss)
+    plt.savefig("vall_loss.png")
     return all_stats
 
 import time
@@ -85,9 +105,8 @@ stats = e1_train_val_loss()
 print(stats)
 end = time.time()
 print("Time of e1 with 1 workers:", end - start)
-
-with open('outfile_withoutstats.pickle', 'wb') as fp:
-    pickle.dump(stats, fp)
-
-with open ('outfile_withoutstats.pickle', 'rb') as fp:
-    itemlist = pickle.load(fp)
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e1")
+model = models[0]
+model.to(device)
+print("Test_acc: ", routines.get_accuracy(device, model, testloader))
+print("Train_acc: ",routines.get_accuracy(device, model, trainloader))

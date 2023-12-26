@@ -50,8 +50,9 @@ with utils.TorchRandomSeed(random_state):
 # identify randomness: dataorder, TODO: find more
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-early_stopper = EarlyStopper(patience=1, min_delta=0)
+#early_stopper = EarlyStopper(patience=1, min_delta=0)
 def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
+          early_stopper,
             calc_stats=True):
     model.to(device)
     model.train()
@@ -75,7 +76,8 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
         for data in trainloader:
             #create rewind point
             if iter == rewind_iter:
-                rewind_point = Resnet_N_W(model.plan, model.initializer, 0, model.outputs)
+                model_hparams = Hparams.ModelHparams(model.plan, model.initializer, model.outputs, model.weight_seed)
+                rewind_point = Resnet_N_W(model_hparams)
                 rewind_point.load_state_dict(model.state_dict())
             
             inputs, labels = data
@@ -91,8 +93,6 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
             running_loss += loss.item()
             if iter % 100 == 0:
                 print(f'[{iter}] loss: {running_loss:.3f}')
-                running_loss = 0.0
-
                 if calc_stats:
                     stats = calculate_stats(device, model, loss_criterion,
                         valloader,
@@ -106,13 +106,18 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
                           + 'val_loss: ' + str(stats[2]) + 'test_acc: ' + str(stats[5]))
                 else:
                     val_loss = get_loss(device, model, valloader, loss_criterion)
+                    all_stats.append([iter, {"running_loss": running_loss, "val_loss" : val_loss}])
+                    print('[' + str(iter) + '] val_loss: ' + str(val_loss))
 
-                if early_stopper.early_stop_val_loss(1000):
+                if early_stopper.early_stop_val_loss(val_loss):
                     print("Stopped early")
                     print("Trained for " + str(iter) + " Iterations.")
                     return rewind_point, all_stats
-
-            lr_scheduler.step()
+            
+            running_loss = 0.0
+            if iter % dataloaderhelper.epochs_to_iter(1) == 0:
+                #do a lr_step after every epoch
+                lr_scheduler.step()
             iter += 1
             if iter >= max_iter:
                 print("Trained for " + str(iter) + " Iterations.")
@@ -313,7 +318,7 @@ def load_experiment(path):
         if p.match('*.pth'):
             model = Resnet_N_W(model_hparams)
             try:
-                model.prune(1, "identity")
+                #try loading unpruned model
                 model.load_state_dict(torch.load(p))
             except:
                 #loading pruned
