@@ -7,8 +7,11 @@ class Hparams(object):
             self.batch_size = batch_size
 
     class ModelHparams():
-        def __init__(self, initialization_seed = 0) -> None:
+        def __init__(self, model_structure, initializer, outputs, initialization_seed = 0) -> None:
             self.initialization_seed = initialization_seed
+            self.model_structure = model_structure
+            self.initializer = initializer
+            self.outputs = outputs
     
     class TrainingHparams():
         def __init__(self, optimizer_name = "sgd", lr=0.1,

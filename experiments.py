@@ -7,7 +7,7 @@ from resnet20 import Resnet_N_W
 from Hparams import Hparams
 from utils import EarlyStopper
 import utils
-import resnet20cifar10 as network
+import routines
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -53,12 +53,13 @@ def e1_train_val_loss():
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(num_epoch=170)
     pruning_hparams = Hparams.PruningHparams()
-    model_hparams = Hparams.ModelHparams()
+    model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
+    model_hparams = Hparams.ModelHparams(
+        model_structure, initializer, outputs, initialization_seed=0)
     #2. Setup model
-    plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
-    model = Resnet_N_W(plan, initializer, model_hparams.initialization_seed, outputs)
+    model = Resnet_N_W(model_hparams)
     #3. Train model
-    _, all_stats = network.train(device,
+    _, all_stats = routines.train(device,
         model,
           0,
           dataloaderhelper,

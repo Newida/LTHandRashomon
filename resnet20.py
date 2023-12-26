@@ -34,8 +34,13 @@ class Resnet_N_W(nn.Module):
             out += self.shortcut(x)
             return F.relu(out)
 
-    def __init__(self, plan, initializer, weight_seed, outputs):
+    def __init__(self, model_hparams):
         super(Resnet_N_W, self).__init__()
+
+        plan = model_hparams.model_structure
+        initializer = model_hparams.initalizer
+        weight_seed = model_hparams.initialization_seed
+        outputs = model_hparams.outputs
         
         # Initial convolution
         current_filters = plan[0][0]
@@ -65,7 +70,6 @@ class Resnet_N_W(nn.Module):
         self.weight_seed = weight_seed   
         self.initial_state = self.state_dict()
         self.module_list = [self.conv, self.bn, self.blocks, self.fc]
-        
 
     def forward(self, x):
         out = F.relu(self.bn(self.conv(x)))

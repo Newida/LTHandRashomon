@@ -6,6 +6,7 @@ from resnet20 import Resnet_N_W
 from Hparams import Hparams
 from utils import EarlyStopper
 import utils
+import pickle
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -254,3 +255,49 @@ imp(
 end = time.time()
 print("Time of IMP:", end - start)
 """
+
+def save_experiment(
+        path,
+        dataset_hparams, training_hparams, pruning_hparams, model_hparams,
+        model, stats
+):
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        experiments_path.mkdir(parents=True)
+
+    saving_experiments_path = experiments_path / path
+    if saving_experiments_path.exists():
+        raise ValueError("Experiment would override other experiment. Cannot be saved.")
+    else:
+        saving_experiments_path.mkdir(parents=True)
+
+    with open(path / "ModelHparams.obj","wb") as f1:
+        pickle.dump(model_hparams, f1)
+    torch.save(model.state_dict, path / "model.pth")
+    with open(path / "stats.list","wb") as f2:
+        pickle.dump(stats, f2)
+    with open(path / "TrainingHparams.obj","wb") as f3:
+        pickle.dump(training_hparams, f3)
+    with open(path / "PruningHparams.obj","wb") as f4:
+        pickle.dump(pruning_hparams, f4)
+    with open(path / "DatasetHparams.obj","wb") as f5:
+        pickle.dump(dataset_hparams, f5)
+    
+def load_experiment(path):
+    if path.exists():
+        raise ValueError("Experiment could not be found.")
+    with open(path / "ModelHparams.obj",'rb') as f1:
+        model_hparams = pickle.load(f1)
+    model = Resnet_N_W(model_hparams)
+    model.load_state_dict(torch.load(path / "model.pth"))
+    with open(path / "stats.list","rb") as f2:
+        stats = pickle.load(f2)
+    with open(path / "TrainingHparams.obj",'rb') as f3:
+        training_hparams = pickle.load(f3)
+    with open(path / "PruningHparams.obj",'rb') as f4:
+        pruning_hparams = pickle.load(f4)
+    with open(path / "DatasetHparams.obj",'rb') as f5:
+        dataset_hparams = pickle.load(f5)
+
+    return model, stats, model_hparams, training_hparams, pruning_hparams, dataset_hparams
