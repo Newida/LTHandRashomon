@@ -51,7 +51,7 @@ early_stopper = EarlyStopper(patience=1, min_delta=0)
 def e1_train_val_loss():
     #initialize network
     #1. Setup hyperparameters
-    training_hparams = Hparams.TrainingHparams(num_epoch=170)
+    training_hparams = Hparams.TrainingHparams(num_epoch=162)
     pruning_hparams = Hparams.PruningHparams()
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
@@ -67,12 +67,16 @@ def e1_train_val_loss():
           False
           )
     #4. Save model and statistics
-    #TODO: do this properly
-    torch.save(model.state_dict(), saving_models_path / "resnet-0.pth")
-    with open('outfile_withoutstats.pickle', 'wb') as fp:
-        pickle.dump(stats, fp)
-    
+    routines.save_experiment("e1",
+                             dataset_hparams,
+                             training_hparams,
+                             pruning_hparams,
+                             model_hparams,
+                             [model],
+                             [all_stats],
+                             False)
     #5. Plot some results
+    #TODO: next
     return all_stats
 
 import time

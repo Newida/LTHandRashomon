@@ -96,8 +96,8 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
                 if calc_stats:
                     stats = calculate_stats(device, model, loss_criterion,
                         valloader,
-                        trainloader,
-                        testloader
+                        testloader,
+                        running_loss
                         )
                     all_stats.append([iter, stats])
                     #check early_stopping
@@ -205,19 +205,21 @@ def get_loss_and_accuracy(device, model, dataloader, loss_criterion):
 
 def calculate_stats(device, model, loss_criterion,
                     valloader,
-                     trainloader,
-                     testloader
+                     testloader,
+                     running_loss
                      ):
     model.eval()
-    #train statistics
-    train_loss, train_accuracy = get_loss_and_accuracy(device, model, trainloader, loss_criterion)
     #validation statistics
     val_loss, val_accuracy = get_loss_and_accuracy(device, model, valloader, loss_criterion)
     #test statistics
     test_loss, test_accuracy = get_loss_and_accuracy(device, model, testloader, loss_criterion)
     model.train()
 
-    return [train_loss, train_accuracy, val_loss, val_accuracy, test_loss, test_accuracy]
+    return {"running_loss": running_loss,
+            "val_loss" : val_loss,
+            "val_acc" : val_accuracy,
+            "test_loss" : test_loss,
+            "test_acc" : test_accuracy}
 
 """
 models_path = workdir / "models"
