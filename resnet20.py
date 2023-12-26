@@ -38,7 +38,7 @@ class Resnet_N_W(nn.Module):
         super(Resnet_N_W, self).__init__()
 
         plan = model_hparams.model_structure
-        initializer = model_hparams.initalizer
+        initializer = model_hparams.initializer
         weight_seed = model_hparams.initialization_seed
         outputs = model_hparams.outputs
         

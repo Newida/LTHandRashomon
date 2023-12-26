@@ -7,6 +7,7 @@ from Hparams import Hparams
 from utils import EarlyStopper
 import utils
 import pickle
+import numpy as np
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -120,10 +121,11 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
 
 def imp(model, random_state,
         training_hparams, pruning_hparams, saving_models_path,
-        dataloaderhelper, 
-        max_pruning_level=12, rewind_iter=0):
+        dataloaderhelper):
     #TODO: replace pruning level by early stopping
     #TODO: Add calculation of statistics
+    max_pruning_level = pruning_hparams.max_pruning_level
+    rewind_iter = pruning_hparams.rewind_iter
     with utils.TorchRandomSeed(random_state):
         #save initial model
         torch.save(model.state_dict(), saving_models_path / "resnet-0.pth")
@@ -259,7 +261,8 @@ print("Time of IMP:", end - start)
 def save_experiment(
         path,
         dataset_hparams, training_hparams, pruning_hparams, model_hparams,
-        model, stats
+        models, all_model_stats,
+        override = False
 ):
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"
@@ -267,16 +270,25 @@ def save_experiment(
         experiments_path.mkdir(parents=True)
 
     saving_experiments_path = experiments_path / path
-    if saving_experiments_path.exists():
-        raise ValueError("Experiment would override other experiment. Cannot be saved.")
-    else:
+    if not saving_experiments_path.exists():
         saving_experiments_path.mkdir(parents=True)
+    else:
+        if not override:
+            raise ValueError("Experiment would override other experiment. Cannot be saved.")
+
+    path = saving_experiments_path
 
     with open(path / "ModelHparams.obj","wb") as f1:
         pickle.dump(model_hparams, f1)
-    torch.save(model.state_dict, path / "model.pth")
-    with open(path / "stats.list","wb") as f2:
-        pickle.dump(stats, f2)
+    #L is the depth of the IMP iteration
+    length = int(np.log10(len(models))) + 1
+    for L, model in enumerate(models):
+        model_number = str(L)
+        model_name = "model" + "0" * (length-len(model_number)) + model_number + ".pth"
+        torch.save(model.state_dict(), path / model_name)
+    for L, stats in enumerate(all_model_stats):
+        with open(path / ("stats" + str(L) + ".list"),"wb") as f2:
+            pickle.dump(stats, f2)
     with open(path / "TrainingHparams.obj","wb") as f3:
         pickle.dump(training_hparams, f3)
     with open(path / "PruningHparams.obj","wb") as f4:
@@ -285,14 +297,31 @@ def save_experiment(
         pickle.dump(dataset_hparams, f5)
     
 def load_experiment(path):
-    if path.exists():
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    path = experiments_path / path
+
+    if not path.exists():
         raise ValueError("Experiment could not be found.")
     with open(path / "ModelHparams.obj",'rb') as f1:
         model_hparams = pickle.load(f1)
-    model = Resnet_N_W(model_hparams)
-    model.load_state_dict(torch.load(path / "model.pth"))
-    with open(path / "stats.list","rb") as f2:
-        stats = pickle.load(f2)
+    models = []
+    all_model_stats = []
+    for p in sorted(path.iterdir()):
+        if p.match('*.pth'):
+            model = Resnet_N_W(model_hparams)
+            try:
+                model.prune(1, "identity")
+                model.load_state_dict(torch.load(p))
+            except:
+                #loading pruned
+                model.prune(1, "identity")
+                model.load_state_dict(torch.load(p))
+            models.append(model)
+        if p.match('*.list'):
+            with open(p,"rb") as f2:
+                stats = pickle.load(f2)
+                all_model_stats.append(stats)
     with open(path / "TrainingHparams.obj",'rb') as f3:
         training_hparams = pickle.load(f3)
     with open(path / "PruningHparams.obj",'rb') as f4:
@@ -300,4 +329,4 @@ def load_experiment(path):
     with open(path / "DatasetHparams.obj",'rb') as f5:
         dataset_hparams = pickle.load(f5)
 
-    return model, stats, model_hparams, training_hparams, pruning_hparams, dataset_hparams
+    return models, all_model_stats, model_hparams, training_hparams, pruning_hparams, dataset_hparams

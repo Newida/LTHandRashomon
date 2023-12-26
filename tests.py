@@ -6,6 +6,7 @@ import torchvision
 import torchvision.transforms as transforms
 from Hparams import Hparams
 from utils import DataLoaderHelper
+import routines
 
 #test is_valid_model_name:
 #false cases
@@ -64,7 +65,8 @@ print("-"*20)
 print("Testing Resnet:")
 print("-Testing structure")
 plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
-resnet20model = Resnet_N_W(plan, initializer, 0, outputs)
+model_hparams = Hparams.ModelHparams(plan, initializer, outputs, 0)
+resnet20model = Resnet_N_W(model_hparams)
 print(resnet20model.blocks)
 print("-Testing forwardstep")
 input = torch.unsqueeze(torch.stack([torch.eye(32),torch.eye(32),torch.eye(32)]), 0)
@@ -73,10 +75,11 @@ print("-"*20)
 
 #Test reintialization
 plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
-resnet20model = Resnet_N_W(plan, initializer, 0, outputs)
-resnet20model_copy = Resnet_N_W(plan, initializer, 0, outputs)
+model_hparams = Hparams.ModelHparams(plan, initializer, outputs, 0)
+resnet20model = Resnet_N_W(model_hparams)
+resnet20model_copy = Resnet_N_W(model_hparams)
 resnet20model_copy.load_state_dict(resnet20model.state_dict())
-resnet20model_untouched = Resnet_N_W(plan, initializer, 0, outputs)
+resnet20model_untouched = Resnet_N_W(model_hparams)
 resnet20model_untouched.load_state_dict(resnet20model.state_dict())
 
 #setting the path to store/load dataset cifar10
@@ -181,7 +184,7 @@ print("unpruned:", unpruned)
 print("total: ", pruned + unpruned)
 
 print("Testing loaded pruned model: ")
-resnet = Resnet_N_W(plan, initializer, 0, outputs)
+resnet = Resnet_N_W(model_hparams)
 resnet.prune(1, "identity")
 resnet.load_state_dict(resnet20model.state_dict())
 loaded_modules = Resnet_N_W.get_list_of_all_modules(resnet)
@@ -287,10 +290,11 @@ print(all_indices2[1][0][:10])
 
 #Test initialization seed
 plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
-resnet1 = Resnet_N_W(plan, initializer, 0, outputs)
+model_hparams = Hparams.ModelHparams(plan, initializer, outputs, 0)
+resnet1 = Resnet_N_W(model_hparams)
 list1 = Resnet_N_W.get_list_of_all_modules(resnet1)
 
-resnet2 = Resnet_N_W(plan, initializer, 0, outputs)
+resnet2 = Resnet_N_W(model_hparams)
 list2 = Resnet_N_W.get_list_of_all_modules(resnet2)
 
 for module1, module2 in zip(list1, list2):
@@ -303,3 +307,20 @@ for module1, module2 in zip(list1, list2):
             break
     except Exception as e:
          pass
+
+stats = [[1, {"t": 1 }], [2, {"f": 3, "h": 5}]]
+
+#Testing saving and loading an experiment
+print("Testing save Experiment")
+routines.save_experiment("e_test",
+                dataset_hparams,
+                training_hparams,
+                pruning_hparams,
+                model_hparams,
+                [resnet, resnet, resnet, resnet, resnet, resnet, resnet, resnet, resnet, resnet, resnet,],
+                [stats, stats],
+                override = True
+)
+
+print("Loading saved Experiment")
+routines.load_experiment("e_test")

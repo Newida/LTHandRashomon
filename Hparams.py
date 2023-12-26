@@ -33,9 +33,11 @@ class Hparams(object):
             self.gamma = gamma #the amount the learning rate drops when reaching a milestone
 
     class PruningHparams():
-        def __init__(self, pruning_ratio = 0.2, method = "l1") -> None:
+        def __init__(self, max_pruning_level = 12, rewind_iter = 0, pruning_ratio = 0.2, method = "l1") -> None:
             self.pruning_ratio = pruning_ratio
             self.pruning_method = method
+            self.max_pruning_level = max_pruning_level
+            self.rewind_iter = rewind_iter
              
     @staticmethod
     def get_optimizer(model, trainingHparams):
