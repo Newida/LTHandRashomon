@@ -39,7 +39,7 @@ with utils.TorchRandomSeed(random_state):
 
     dataset_hparams = Hparams.DatasetHparams()
     #(down)load dataset cifar10
-    dataloaderhelper = utils.DataLoaderHelper(split_seed=0, data_order_seed=0, datasethparams=dataset_hparams)
+    dataloaderhelper = utils.DataLoaderHelper(split_seed=0, data_order_seed=42, datasethparams=dataset_hparams)
     trainset = dataloaderhelper.get_trainset(data_path, transform)
     testset = dataloaderhelper.get_testset(data_path, transform)
     trainset, valset = dataloaderhelper.split_train_val(trainset)
@@ -49,7 +49,7 @@ with utils.TorchRandomSeed(random_state):
 
 early_stopper = EarlyStopper(patience=10, min_delta=0)
 
-def e1_train_val_loss():
+def e1_train_val_loss(name):
     #initialize network
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(
@@ -59,7 +59,7 @@ def e1_train_val_loss():
     pruning_hparams = Hparams.PruningHparams()
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
-        model_structure, initializer, outputs, initialization_seed=0)
+        model_structure, initializer, outputs, initialization_seed=42)
     #2. Setup model
     model = Resnet_N_W(model_hparams)
     #3. Train model
@@ -72,14 +72,14 @@ def e1_train_val_loss():
           False
           )
     #4. Save model and statistics
-    routines.save_experiment("e1",
+    routines.save_experiment(name,
                              dataset_hparams,
                              training_hparams,
                              pruning_hparams,
                              model_hparams,
                              [model],
                              [all_stats],
-                             False)
+                             True)
     #5. Plot some results
     x_iter = []
     y_running_loss = []
@@ -101,11 +101,10 @@ def e1_train_val_loss():
 
 import time
 start = time.time()
-stats = e1_train_val_loss()
-print(stats)
+stats = e1_train_val_loss("e3_dataorder_seed42_weightseed42")
 end = time.time()
 print("Time of e1 with 1 workers:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e1")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e3_dataorder_seed42_weightseed42")
 model = models[0]
 model.to(device)
 print("Test_acc: ", routines.get_accuracy(device, model, testloader))

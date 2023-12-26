@@ -27,11 +27,14 @@ class DataLoaderHelper():
         self.validationloader = None
         self.trainloader = None
         self.data_order_generator = None
+        self.data_split_generator = None
         self.split_seed = split_seed
         self.data_order_seed = data_order_seed
         
     def split_train_val(self, trainset, val_set_size=5000):
-        #TODO: introduce seed here
+        generator = torch.Generator()
+        generator.manual_seed(self.split_seed)
+        self.data_split_generator = generator
         trainset, valset = torch.utils.data.random_split(trainset,
                 [len(trainset)-val_set_size, val_set_size])
         return trainset, valset
@@ -72,6 +75,7 @@ class DataLoaderHelper():
         #2. initialize a generator
         generator = torch.Generator()
         generator.manual_seed(self.data_order_seed)
+        self.data_order_generator = generator
         #3. pass generator to sampler
         random_sampler.generator = generator
         return trainloader

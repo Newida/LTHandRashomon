@@ -45,12 +45,10 @@ with utils.TorchRandomSeed(random_state):
     valloader = dataloaderhelper.get_validation_loader(valset)
 """
 #do training 
-#TODO: be wary for the randomness in the training
+# TODO: be wary for the randomness in the training
 # as it is important to identify different winning tickets later
 # identify randomness: dataorder, TODO: find more
 
-#device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#early_stopper = EarlyStopper(patience=1, min_delta=0)
 def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
           early_stopper,
             calc_stats=True):
