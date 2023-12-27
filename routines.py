@@ -312,6 +312,7 @@ def load_experiment(path):
     return models, all_model_stats, model_hparams, training_hparams, pruning_hparams, dataset_hparams
 
 def linear_mode_connected(device, model1, model2, dataloader):
+    #TODO: test if this actually does what it should
     with torch.no_grad():
         betas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         model_hparams = Hparams.ModelHparams(model1.plan, model1.initializer, model1.outputs, model1.weight_seed)
