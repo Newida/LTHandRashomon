@@ -101,10 +101,10 @@ def e1_train_val_loss(name):
 
 import time
 start = time.time()
-stats = e1_train_val_loss("e3_dataorder_seed42_weightseed42")
+stats = e1_train_val_loss("e4newdataset")
 end = time.time()
 print("Time of e1 with 1 workers:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e3_dataorder_seed42_weightseed42")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e4newdataset")
 model = models[0]
 model.to(device)
 print("Test_acc: ", routines.get_accuracy(device, model, testloader))

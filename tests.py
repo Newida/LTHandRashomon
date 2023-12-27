@@ -108,7 +108,8 @@ classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
 print("Testing rewinding: ")
-training_hparams = Hparams.TrainingHparams(num_epoch=1, milestone_steps=[])
+training_hparams = Hparams.TrainingHparams(dataloaderhelper.split_seed, data_order_seed=dataloaderhelper.data_order_seed,
+                                           num_epoch=1, milestone_steps=[])
 print("Before training:")
 def compare_models(model1, model2):
     with torch.no_grad():
@@ -214,12 +215,18 @@ print(
     """
 
 #How to reproduces the a single shuffeling
-dataloader = torch.utils.data.DataLoader(trainset, shuffle = True, batch_size = 128)
-random_sampler = dataloader.sampler
-print(type(random_sampler))
+#dataloader = torch.utils.data.DataLoader(trainset, shuffle = True, batch_size = 128)
+#random_sampler = dataloader.sampler
+#print(type(random_sampler))
+#generator = torch.Generator()
+#generator.manual_seed(0)
+#random_sampler.generator = generator
 generator = torch.Generator()
 generator.manual_seed(0)
-random_sampler.generator = generator
+random_sampler = torch.utils.data.RandomSampler(data_source=trainset, generator=generator)
+dataloader = torch.utils.data.DataLoader(trainset,sampler=random_sampler,
+                                            batch_size=128,
+                                            num_workers=1, generator=generator)
 print(random_sampler.generator.get_state())
 
 all_indices1 = list()
@@ -247,11 +254,19 @@ print(all_indices2[0][:10])
 
 print("Testing for sequence now: ")
 #How to reproduces the a training shuffeling sequence
-dataloader = torch.utils.data.DataLoader(trainset, shuffle = True, batch_size = 128)
-random_sampler = dataloader.sampler
+#dataloader = torch.utils.data.DataLoader(trainset, shuffle = True, batch_size = 128)
+#random_sampler = dataloader.sampler
+#generator = torch.Generator()
+#generator.manual_seed(0)
+#random_sampler.generator = generator
+
 generator = torch.Generator()
 generator.manual_seed(0)
-random_sampler.generator = generator
+random_sampler = torch.utils.data.RandomSampler(data_source=trainset, generator=generator)
+dataloader = torch.utils.data.DataLoader(trainset,sampler=random_sampler,
+                                            batch_size=128,
+                                            num_workers=1, generator=generator)
+
 
 all_indices1 = list([list() for i in range(10)])
 for epoch in range(10):
@@ -268,6 +283,7 @@ print("Diff between epochs:", diff_between_epochs)
 print(all_indices1[0][0][:10])
 print(all_indices1[1][0][:10])
 
+#generator.manual_seed(0)
 random_sampler = dataloader.sampler
 generator = dataloader.sampler.generator
 generator.manual_seed(0)

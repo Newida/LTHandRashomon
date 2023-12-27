@@ -15,35 +15,6 @@ try:
 except NameError or ModuleNotFoundError:
     pass
 
-"""#setting the path to store/load dataset cifar10
-workdir = Path.cwd()
-data_path = workdir / "datasets" / "cifar10"
-if not data_path.exists():
-    data_path.mkdir(parents=True)
-
-random_state = 0 #TODO: add to commandline arguments later
-
-with utils.TorchRandomSeed(random_state):
-#data augmentation
-    mean = [0.4914, 0.4822, 0.4465]
-    std = [0.2023, 0.1994, 0.2010]
-    transform = transforms.Compose(
-        [transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean, std)
-        ])
-
-    dataset_hparams = Hparams.DatasetHparams()
-    #(down)load dataset cifar10
-    dataloaderhelper = utils.DataLoaderHelper(split_seed=0, data_order_seed=0, datasethparams=dataset_hparams)
-    trainset = dataloaderhelper.get_trainset(data_path, transform)
-    testset = dataloaderhelper.get_testset(data_path, transform)
-    trainset, valset = dataloaderhelper.split_train_val(trainset)
-    trainloader = dataloaderhelper.get_train_loader(trainset)
-    testloader = dataloaderhelper.get_test_loader(testset)
-    valloader = dataloaderhelper.get_validation_loader(valset)
-"""
 #do training 
 # TODO: be wary for the randomness in the training
 # as it is important to identify different winning tickets later

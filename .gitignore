@@ -1,6 +1,6 @@
 data
 cifar_net.pth
-datasets
+datasets*
 __pycache__
 models
 scratchpad.py

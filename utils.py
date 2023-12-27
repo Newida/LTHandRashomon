@@ -66,9 +66,11 @@ class DataLoaderHelper():
     def get_train_loader(self, trainset):
         generator = torch.Generator()
         generator.manual_seed(self.data_order_seed)
+        self.data_order_generator = generator
         random_sampler = torch.utils.data.RandomSampler(data_source=trainset, generator=generator)
-        trainloader = torch.utils.data.DataLoader(trainset,batch_size=self.datasethparams.batch_size,
-                    shuffle=True, num_workers=1, generator=generator)
+        trainloader = torch.utils.data.DataLoader(trainset,sampler=random_sampler,
+                                                  batch_size=self.datasethparams.batch_size,
+                                                  num_workers=1, generator=generator)
 
         return trainloader
     
