@@ -29,7 +29,7 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
     lr_scheduler = Hparams.get_lr_scheduler(optimizer, training_hparams)
     loss_criterion = Hparams.get_loss_criterion(training_hparams)
     trainloader = dataloaderhelper.trainloader
-    valloader = dataloaderhelper.valloader
+    valloader = dataloaderhelper.validationloader
     testloader = dataloaderhelper.testloader
     #reset generator of trainloader to achive same data_order during training
     dataloaderhelper.reset_trainloader_generator(trainloader)
@@ -311,32 +311,36 @@ def load_experiment(path):
 
     return models, all_model_stats, model_hparams, training_hparams, pruning_hparams, dataset_hparams
 
-def linear_mode_connected(model1, model2):
+def linear_mode_connected(device, model1, model2, dataloader):
     with torch.no_grad():
-        beta = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+        betas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
         model_hparams = Hparams.ModelHparams(model1.plan, model1.initializer, model1.outputs, model1.weight_seed)
         convex_network = Resnet_N_W(model_hparams)
         #make sure model1 and model2 are "pruned", i.e. have weight_orig and mask attributes
         model1.prune(1, "identity")
         model2.prune(1, "identity")
-        #load model1 state_dict
-        convex_network.prune(1, "identity")
-        convex_network.load_state_dict(model1)
-    
         list_model2 = Resnet_N_W.get_list_of_all_modules(model2)
         list_convex_network = Resnet_N_W.get_list_of_all_modules(convex_network)
-        for source, target in zip(list_model2, list_convex_network):
-            convex_weigths(source, target, beta)
+        #load model1 state_dict
+        convex_network.prune(1, "identity")
+        errors = []
 
+        for beta in betas:
+            convex_network.load_state_dict(model1.state_dict())
+            for source, target in zip(list_model2, list_convex_network):
+                convex_weigths(source, target, beta)
+            convex_network.to(device)
+            errors.append(1 - get_accuracy(device, convex_network, dataloader))
+
+        return errors
+    
 def convex_weigths(source, target, beta):
-    #TODO: does this bias thing actually work?
-    #why is it not bias_orig
     with torch.no_grad():
         #check if pruned
         source.weight_orig.copy_((1 - beta) * source.weight_orig + beta * target.weight_orig)
-        if source.bias is not None and source.bias is not None:
-            source.bias.copy_((1 - beta) * source.bias + beta * target.bias)
-        elif source.bias is None and source.bias is None:
+        if source.bias_orig is not None and source.bias_orig is not None:
+            source.bias_orig.copy_((1 - beta) * source.bias + beta * target.bias)
+        elif source.bias_orig is None and source.bias_orig is None:
             return
         else:
             raise ValueError("Biases could not be matched")

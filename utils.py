@@ -60,7 +60,7 @@ class DataLoaderHelper():
         valloader = torch.utils.data.DataLoader(valset,
                                                   batch_size=self.datasethparams.batch_size,
                                          shuffle=False, num_workers=4)
-        self.valloader = valloader
+        self.validationloader = valloader
         return valloader
     
     def get_train_loader(self, trainset):

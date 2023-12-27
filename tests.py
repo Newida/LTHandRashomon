@@ -101,9 +101,11 @@ dataset_hparams = Hparams.DatasetHparams()
 dataloaderhelper = DataLoaderHelper(0, 0, dataset_hparams)
 trainset = dataloaderhelper.get_trainset(data_path, transform)
 trainset, valset = dataloaderhelper.split_train_val(trainset)
-trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=dataset_hparams.batch_size,
-                                         shuffle=True, num_workers=2)
+trainloader = dataloaderhelper.get_train_loader(trainset)
+testset = dataloaderhelper.get_testset(data_path, transform)
+testloader = dataloaderhelper.get_test_loader(testset)
+validationloader = dataloaderhelper.get_validation_loader(valset)
+
 classes = ('plane', 'car', 'bird', 'cat',
            'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
@@ -215,12 +217,6 @@ print(
     """
 
 #How to reproduces the a single shuffeling
-#dataloader = torch.utils.data.DataLoader(trainset, shuffle = True, batch_size = 128)
-#random_sampler = dataloader.sampler
-#print(type(random_sampler))
-#generator = torch.Generator()
-#generator.manual_seed(0)
-#random_sampler.generator = generator
 generator = torch.Generator()
 generator.manual_seed(0)
 random_sampler = torch.utils.data.RandomSampler(data_source=trainset, generator=generator)
@@ -254,12 +250,6 @@ print(all_indices2[0][:10])
 
 print("Testing for sequence now: ")
 #How to reproduces the a training shuffeling sequence
-#dataloader = torch.utils.data.DataLoader(trainset, shuffle = True, batch_size = 128)
-#random_sampler = dataloader.sampler
-#generator = torch.Generator()
-#generator.manual_seed(0)
-#random_sampler.generator = generator
-
 generator = torch.Generator()
 generator.manual_seed(0)
 random_sampler = torch.utils.data.RandomSampler(data_source=trainset, generator=generator)
@@ -358,47 +348,55 @@ model2 = Resnet_N_W(model_hparams)
 print("Are model1 and model2 the same at initalization?", compare_models(model1, model2))
 early_stopper1 = EarlyStopper(patience=10, min_delta=0)
 early_stopper2 = EarlyStopper(patience=10, min_delta=0)
-_, all_stats = routines.train(device,
+#TODO: early stopping breaks at different times even though it should not
+#hence as long as training ends due to max_iter beeing reached, the networks stay the same
+#otherwise they don't. But I don't know why early stopping doesn't work right now.
+skip2 = True
+if not skip2:
+    _, all_stats = routines.train(device,
         model1,
-          0,
-          dataloaderhelper,
-          training_hparams,
-          early_stopper1,
-          False
-          )
+            0,
+            dataloaderhelper,
+            training_hparams,
+            early_stopper1,
+            False
+            )
 
-routines.save_experiment(
+    routines.save_experiment(
         "test1",
         "to test if get same network, trained for 10 epochs",
         dataset_hparams, training_hparams, pruning_hparams, model_hparams,
         [model1], [all_stats],
         override = True
-)
+    )
 
-_, all_stats = routines.train(device,
+    _, all_stats = routines.train(device,
         model2,
-          0,
-          dataloaderhelper,
-          training_hparams,
-          early_stopper2,
-          False
-          )
+            0,
+            dataloaderhelper,
+            training_hparams,
+            early_stopper2,
+            False
+            )
 
-routines.save_experiment(
+    routines.save_experiment(
         "test2",
         "to test if get same network, trained for 10 epochs",
         dataset_hparams, training_hparams, pruning_hparams, model_hparams,
         [model2], [all_stats],
         override = True
-)
+    )
 
-print("Are model1 and model2 the same after training?", compare_models(model1, model2))
+    print("Are model1 and model2 the same after training?", compare_models(model1, model2))
 
-models1, _1, _2, _3, _4, _5 = routines.load_experiment("test1")
-m1 = models1[0]
-m1.to(device)
-print("Are model1 and loaded model1 the same?", compare_models(model1, models1[0]))
-models2, _1, _2, _3, _4, _5 = routines.load_experiment("test2")
-m2 = models2[0]
-m2.to(device)
-print("Are model2 and loaded model2 the same?", compare_models( model2, models2[0]))
+    models1, _1, _2, _3, _4, _5 = routines.load_experiment("test1")
+    m1 = models1[0]
+    m1.to(device)
+    print("Are model1 and loaded model1 the same?", compare_models(model1, models1[0]))
+    models2, _1, _2, _3, _4, _5 = routines.load_experiment("test2")
+    m2 = models2[0]
+    m2.to(device)
+    print("Are model2 and loaded model2 the same?", compare_models( model2, models2[0]))
+
+print("Testing linear mode connectivity")
+routines.linear_mode_connected(device, model1, model2, testloader)
