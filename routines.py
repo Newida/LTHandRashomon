@@ -236,6 +236,7 @@ print("Time of IMP:", end - start)
 
 def save_experiment(
         path,
+        description,
         dataset_hparams, training_hparams, pruning_hparams, model_hparams,
         models, all_model_stats,
         override = False
@@ -271,7 +272,9 @@ def save_experiment(
         pickle.dump(pruning_hparams, f4)
     with open(path / "DatasetHparams.obj","wb") as f5:
         pickle.dump(dataset_hparams, f5)
-    
+    with open(path / "Description.txt", "w") as f6:
+        f6.write(description)
+
 def load_experiment(path):
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"

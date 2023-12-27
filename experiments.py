@@ -49,7 +49,7 @@ with utils.TorchRandomSeed(random_state):
 
 early_stopper = EarlyStopper(patience=10, min_delta=0)
 
-def e1_train_val_loss(name):
+def e1_train_val_loss(name, description):
     #initialize network
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(
@@ -73,6 +73,7 @@ def e1_train_val_loss(name):
           )
     #4. Save model and statistics
     routines.save_experiment(name,
+                             description,
                              dataset_hparams,
                              training_hparams,
                              pruning_hparams,
@@ -101,10 +102,10 @@ def e1_train_val_loss(name):
 
 import time
 start = time.time()
-stats = e1_train_val_loss("e4newdataset")
+#stats = e1_train_val_loss("e6", "repeat experiment e5 to see if same acc is achived")
 end = time.time()
 print("Time of e1 with 1 workers:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e4newdataset")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e5")
 model = models[0]
 model.to(device)
 print("Test_acc: ", routines.get_accuracy(device, model, testloader))

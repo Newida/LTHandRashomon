@@ -5,7 +5,7 @@ from pathlib import Path
 import torchvision
 import torchvision.transforms as transforms
 from Hparams import Hparams
-from utils import DataLoaderHelper
+from utils import DataLoaderHelper, EarlyStopper
 import routines
 
 #test is_valid_model_name:
@@ -329,6 +329,7 @@ stats = [[1, {"t": 1 }], [2, {"f": 3, "h": 5}]]
 #Testing saving and loading an experiment
 print("Testing save Experiment")
 routines.save_experiment("e_test",
+                "test",
                 dataset_hparams,
                 training_hparams,
                 pruning_hparams,
@@ -340,3 +341,64 @@ routines.save_experiment("e_test",
 
 print("Loading saved Experiment")
 routines.load_experiment("e_test")
+
+print("Testing if models stay the same during training:")
+#1. Setup hyperparameters
+training_hparams = Hparams.TrainingHparams(
+    split_seed=dataloaderhelper.split_seed,
+    data_order_seed=dataloaderhelper.data_order_seed,
+    num_epoch=4)
+pruning_hparams = Hparams.PruningHparams()
+model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
+model_hparams = Hparams.ModelHparams(
+    model_structure, initializer, outputs, initialization_seed=42)
+#2. Setup model
+model1 = Resnet_N_W(model_hparams)
+model2 = Resnet_N_W(model_hparams)
+print("Are model1 and model2 the same at initalization?", compare_models(model1, model2))
+early_stopper1 = EarlyStopper(patience=10, min_delta=0)
+early_stopper2 = EarlyStopper(patience=10, min_delta=0)
+_, all_stats = routines.train(device,
+        model1,
+          0,
+          dataloaderhelper,
+          training_hparams,
+          early_stopper1,
+          False
+          )
+
+routines.save_experiment(
+        "test1",
+        "to test if get same network, trained for 10 epochs",
+        dataset_hparams, training_hparams, pruning_hparams, model_hparams,
+        [model1], [all_stats],
+        override = True
+)
+
+_, all_stats = routines.train(device,
+        model2,
+          0,
+          dataloaderhelper,
+          training_hparams,
+          early_stopper2,
+          False
+          )
+
+routines.save_experiment(
+        "test2",
+        "to test if get same network, trained for 10 epochs",
+        dataset_hparams, training_hparams, pruning_hparams, model_hparams,
+        [model2], [all_stats],
+        override = True
+)
+
+print("Are model1 and model2 the same after training?", compare_models(model1, model2))
+
+models1, _1, _2, _3, _4, _5 = routines.load_experiment("test1")
+m1 = models1[0]
+m1.to(device)
+print("Are model1 and loaded model1 the same?", compare_models(model1, models1[0]))
+models2, _1, _2, _3, _4, _5 = routines.load_experiment("test2")
+m2 = models2[0]
+m2.to(device)
+print("Are model2 and loaded model2 the same?", compare_models( model2, models2[0]))
