@@ -319,6 +319,8 @@ def linear_mode_connected(device, model1, model2, dataloader):
         #make sure model1 and model2 are "pruned", i.e. have weight_orig and mask attributes
         model1.prune(1, "identity")
         model2.prune(1, "identity")
+        model1.to(device)
+        model2.to(device)
         list_model2 = Resnet_N_W.get_list_of_all_modules(model2)
         list_convex_network = Resnet_N_W.get_list_of_all_modules(convex_network)
         #load model1 state_dict
@@ -326,21 +328,20 @@ def linear_mode_connected(device, model1, model2, dataloader):
         errors = []
 
         for beta in betas:
+            convex_network.to(device)
             convex_network.load_state_dict(model1.state_dict())
             for source, target in zip(list_model2, list_convex_network):
-                convex_weigths(source, target, beta)
-            convex_network.to(device)
+                convex_weigths(device, source, target, beta)
             errors.append(1 - get_accuracy(device, convex_network, dataloader))
 
         return errors
     
-def convex_weigths(source, target, beta):
+def convex_weigths(device, source, target, beta):
     with torch.no_grad():
-        #check if pruned
         source.weight_orig.copy_((1 - beta) * source.weight_orig + beta * target.weight_orig)
-        if source.bias_orig is not None and source.bias_orig is not None:
-            source.bias_orig.copy_((1 - beta) * source.bias + beta * target.bias)
-        elif source.bias_orig is None and source.bias_orig is None:
+        if source.bias is not None and target.bias is not None:
+            source.bias_orig.copy_((1 - beta) * source.bias_orig + beta * target.bias_orig)
+        elif source.bias is None and target.bias is None:
             return
         else:
             raise ValueError("Biases could not be matched")
