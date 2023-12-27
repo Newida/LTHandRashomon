@@ -52,14 +52,14 @@ class DataLoaderHelper():
     def get_test_loader(self, testset):
         testloader = torch.utils.data.DataLoader(testset,
                                                   batch_size=self.datasethparams.batch_size,
-                                         shuffle=False, num_workers=10)
+                                         shuffle=False, num_workers=4)
         self.testloader = testloader
         return testloader
     
     def get_validation_loader(self, valset):
         valloader = torch.utils.data.DataLoader(valset,
                                                   batch_size=self.datasethparams.batch_size,
-                                         shuffle=False, num_workers=10)
+                                         shuffle=False, num_workers=4)
         self.valloader = valloader
         return valloader
     
