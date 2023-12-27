@@ -36,7 +36,7 @@ class DataLoaderHelper():
         generator.manual_seed(self.split_seed)
         self.data_split_generator = generator
         trainset, valset = torch.utils.data.random_split(trainset,
-                [len(trainset)-val_set_size, val_set_size])
+                [len(trainset)-val_set_size, val_set_size], generator=generator)
         return trainset, valset
     
     def get_trainset(self, safe_trainset_path, transform):
@@ -64,20 +64,12 @@ class DataLoaderHelper():
         return valloader
     
     def get_train_loader(self, trainset):
-        trainloader = torch.utils.data.DataLoader(trainset,
-                                                  batch_size=self.datasethparams.batch_size,
-                                         shuffle=True, num_workers=1)
-        #setting num_workers to 1 to avoid Randomness during mulit-process data loading
-        self.trainloader = trainloader
-        #make data order determinisitc
-        #1. get random_sampler of train loader
-        random_sampler = trainloader.sampler
-        #2. initialize a generator
         generator = torch.Generator()
         generator.manual_seed(self.data_order_seed)
-        self.data_order_generator = generator
-        #3. pass generator to sampler
-        random_sampler.generator = generator
+        random_sampler = torch.utils.data.RandomSampler(data_source=trainset, generator=generator)
+        trainloader = torch.utils.data.DataLoader(trainset,batch_size=self.datasethparams.batch_size,
+                    shuffle=True, num_workers=1, generator=generator)
+
         return trainloader
     
     def reset_trainloader_generator(self, trainloader):
