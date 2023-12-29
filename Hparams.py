@@ -18,7 +18,9 @@ class Hparams(object):
                       momentum = 0.9, gamma = 0.1, 
                       weight_decay=1e-4, loss_criterion = "crossentropy",
                       num_epoch = 160,
-                      milestone_steps = [80, 120]) -> None:
+                      milestone_steps = [80, 120],
+                      patience = 10,
+                      min_delta = 0) -> None:
             self.optimizer_name = optimizer_name
             self.lr = lr
             self.data_order_seed = data_order_seed
@@ -30,6 +32,8 @@ class Hparams(object):
             self.milestone_steps = milestone_steps #at which epoch to drop the learning rate
             #measured in epochs
             self.gamma = gamma #the amount the learning rate drops when reaching a milestone
+            self.early_stopper_patience = patience
+            self.early_stopper_min_delta = min_delta
 
     class PruningHparams():
         def __init__(self, max_pruning_level = 12, rewind_iter = 0, pruning_ratio = 0.2, method = "l1") -> None:

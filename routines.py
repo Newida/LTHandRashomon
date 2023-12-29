@@ -58,7 +58,7 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
             optimizer.step()
 
             running_loss += loss.item()
-            if iter % 1000 == 0:
+            if iter % 300 == 0:
                 print(f'[{iter}] loss: {running_loss:.3f}')
                 if calc_stats:
                     stats = calculate_stats(device, model, loss_criterion,
@@ -68,9 +68,10 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
                         )
                     all_stats.append([iter, stats])
                     #check early_stopping
-                    val_loss = stats[2]
-                    print('[' + str(iter) + '] train_acc: ' + str(stats[1])
-                          + 'val_loss: ' + str(stats[2]) + 'test_acc: ' + str(stats[5]))
+                    val_loss = stats['val_loss']
+                    print('[' + str(iter) + '] '+ 
+                          'val_loss: ' + str(stats['val_loss']) 
+                          + ' test_acc: ' + str(stats['test_acc']))
                 else:
                     val_loss = get_loss(device, model, valloader, loss_criterion)
                     all_stats.append([iter, {"running_loss": running_loss, "val_loss" : val_loss}])

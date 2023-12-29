@@ -5,7 +5,7 @@ import torchvision
 import torchvision.transforms as transforms
 from resnet20 import Resnet_N_W
 from Hparams import Hparams
-from utils import EarlyStopper
+from utils_Earlystopper import EarlyStopper
 import utils
 import routines
 import matplotlib.pyplot as plt
@@ -39,7 +39,13 @@ with utils.TorchRandomSeed(random_state):
 
     dataset_hparams = Hparams.DatasetHparams()
     #(down)load dataset cifar10
-    dataloaderhelper = utils.DataLoaderHelper(split_seed=0, data_order_seed=42, datasethparams=dataset_hparams)
+    dataloaderhelper = utils.DataLoaderHelper(
+        split_seed=0,
+        data_order_seed=0,
+        val_seed=0,
+        test_seed=0,
+        datasethparams=dataset_hparams
+        )
     trainset = dataloaderhelper.get_trainset(data_path, transform)
     testset = dataloaderhelper.get_testset(data_path, transform)
     trainset, valset = dataloaderhelper.split_train_val(trainset)
@@ -47,30 +53,34 @@ with utils.TorchRandomSeed(random_state):
     testloader = dataloaderhelper.get_test_loader(testset)
     valloader = dataloaderhelper.get_validation_loader(valset)
 
-early_stopper = EarlyStopper(patience=10, min_delta=0)
-
 def e1_train_val_loss(name, description):
+    #Look at training routine
     #initialize network
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(
         split_seed=dataloaderhelper.split_seed,
         data_order_seed=dataloaderhelper.data_order_seed,
-        num_epoch=162)
+        num_epoch=200)
     pruning_hparams = Hparams.PruningHparams()
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
-        model_structure, initializer, outputs, initialization_seed=42)
+        model_structure, initializer, outputs, initialization_seed=0)
     #2. Setup model
     model = Resnet_N_W(model_hparams)
     #3. Train model
-    _, all_stats = routines.train(device,
+    early_stopper = EarlyStopper(
+        model_hparams,
+        patience=training_hparams.early_stopper_patience,
+        min_delta=training_hparams.early_stopper_min_delta)
+    
+    _, all_stats, best_model = routines.train(device,
         model,
-          0,
-          dataloaderhelper,
-          training_hparams,
-          early_stopper,
-          False
-          )
+        0,
+        dataloaderhelper,
+        training_hparams,
+        early_stopper,
+        True
+        )
     #4. Save model and statistics
     routines.save_experiment(name,
                              description,
@@ -78,34 +88,41 @@ def e1_train_val_loss(name, description):
                              training_hparams,
                              pruning_hparams,
                              model_hparams,
-                             [model],
+                             [best_model],
                              [all_stats],
-                             True)
+                             False)
     #5. Plot some results
     x_iter = []
     y_running_loss = []
     y_val_loss = []
-    y_test_acc = []
     for stats in all_stats:
         x_iter.append(stats[0])
         stats = stats[1]
         y_running_loss.append(stats['running_loss'])
         y_val_loss.append(stats['val_loss'])
-        #y_running_loss.append(stats['test_acc'])
 
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    saving_experiments_path = experiments_path / name
+    if not saving_experiments_path.exists():
+        raise ValueError("Exerpiment does not exists.")
+    
     plt.plot(x_iter, y_running_loss)
-    plt.savefig("running_loss.png")
+    plt.savefig(saving_experiments_path / "running_loss.png")
     plt.clf()
     plt.plot(x_iter, y_val_loss)
-    plt.savefig("vall_loss.png")
+    plt.savefig(saving_experiments_path / "vall_loss.png")
     return all_stats
 
 import time
 start = time.time()
-#stats = e1_train_val_loss("e6", "repeat experiment e5 to see if same acc is achived")
+stats = e1_train_val_loss("e1", "200 epoch training of network")
 end = time.time()
-print("Time of e1 with 1 workers:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e5")
+print("Time of Experiment 1:", end - start)
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e1")
 model = models[0]
 model.to(device)
 print("Test_acc: ", routines.get_accuracy(device, model, testloader))
