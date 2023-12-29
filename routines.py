@@ -32,7 +32,8 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
     valloader = dataloaderhelper.validationloader
     testloader = dataloaderhelper.testloader
     #reset generator of trainloader to achive same data_order during training
-    dataloaderhelper.reset_trainloader_generator(trainloader)
+    dataloaderhelper.reset_trainloader_generator()
+    dataloaderhelper.reset_valloader_generator()
     
     all_stats = []
     iter = 0

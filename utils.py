@@ -84,6 +84,9 @@ class DataLoaderHelper():
         random_sampler = self.trainloader.sampler
         generator = self.trainloader.sampler.generator
         generator.manual_seed(self.data_order_seed)
+        #same as self.trainloader.generator.manual_seed(self.val_seed)
+        #since we gave the same generator to
+        #the dataloader and the sampler
     
     def iter_to_epochs(self, num_iters):
          return num_iters / len(self.trainloader)
