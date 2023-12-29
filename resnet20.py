@@ -131,6 +131,14 @@ class Resnet_N_W(nn.Module):
         return all_module_list
 
     @staticmethod
+    def check_if_pruned(model):
+        first_conv = model.module_list[0]
+        if "weight_orig" in [name for name, _ in first_conv.named_parameters()]:
+            return True
+        else:
+            return False
+
+    @staticmethod
     def _copy_weights(source, target):
         with torch.no_grad():
             #check if pruned

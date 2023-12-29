@@ -5,7 +5,8 @@ from pathlib import Path
 import torchvision
 import torchvision.transforms as transforms
 from Hparams import Hparams
-from utils import DataLoaderHelper, EarlyStopper
+from utils import DataLoaderHelper
+from utils_Earlystopper import EarlyStopper
 import routines
 
 #test is_valid_model_name:
@@ -172,6 +173,7 @@ if not skip:
 
 #test pruning:
 print("Test pruning: ")
+print("Testing check_pruned: ", Resnet_N_W.check_if_pruned(resnet20model))
 pruning_hparams = Hparams.PruningHparams()
 resnet20model.prune(prune_ratio=pruning_hparams.pruning_ratio, method="l1")
 pruned = 0
@@ -185,6 +187,7 @@ print("Total expected:", len(Resnet_N_W.get_list_of_all_modules(resnet20model)))
 print("pruned:", pruned)
 print("unpruned:", unpruned)
 print("total: ", pruned + unpruned)
+print("Testing check_pruned: ", Resnet_N_W.check_if_pruned(resnet20model))
 
 print("Testing loaded pruned model: ")
 resnet = Resnet_N_W(model_hparams)
@@ -346,8 +349,8 @@ model_hparams = Hparams.ModelHparams(
 model1 = Resnet_N_W(model_hparams)
 model2 = Resnet_N_W(model_hparams)
 print("Are model1 and model2 the same at initalization?", compare_models(model1, model2))
-early_stopper1 = EarlyStopper(patience=10, min_delta=0)
-early_stopper2 = EarlyStopper(patience=10, min_delta=0)
+early_stopper1 = EarlyStopper(model_hparams, patience=10, min_delta=0)
+early_stopper2 = EarlyStopper(model_hparams, patience=10, min_delta=0)
 #TODO: early stopping breaks at different times even though it should not
 #hence as long as training ends due to max_iter beeing reached, the networks stay the same
 #otherwise they don't. But I don't know why early stopping doesn't work right now.

@@ -4,7 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 from resnet20 import Resnet_N_W
 from Hparams import Hparams
-from utils import EarlyStopper
+#from utils_Earlystopper import EarlyStopper
 import utils
 import pickle
 import numpy as np
@@ -78,11 +78,11 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
                     all_stats.append([iter, {"running_loss": running_loss, "val_loss" : val_loss}])
                     print('[' + str(iter) + '] val_loss: ' + str(val_loss))
 
-                if early_stopper.early_stop_val_loss(val_loss):
+                if early_stopper(model, val_loss):
                     print("Stopped early")
                     print("Trained for " + str(iter) + " Iterations.")
-                    print("Got minimum validation loss in early stopper: ", EarlyStopper.min_val_loss)
-                    return rewind_point, all_stats
+                    print("Got minimum validation loss in early stopper: ", early_stopper.min_val_loss)
+                    return rewind_point, all_stats, early_stopper.best_model
             
             running_loss = 0.0
             if iter % dataloaderhelper.epochs_to_iter(1) == 0:
@@ -91,7 +91,7 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
             iter += 1
             if iter >= max_iter:
                 print("Trained for " + str(iter) + " Iterations.")
-                return rewind_point, all_stats
+                return rewind_point, all_stats, model
 
 
 def imp(model, random_state,
