@@ -4,7 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 from resnet20 import Resnet_N_W
 from Hparams import Hparams
-#from utils_Earlystopper import EarlyStopper
+from utils_Earlystopper import EarlyStopper
 import utils
 import pickle
 import numpy as np
@@ -15,14 +15,11 @@ try:
 except NameError or ModuleNotFoundError:
     pass
 
-#do training 
-# TODO: be wary for the randomness in the training
-# as it is important to identify different winning tickets later
-# identify randomness: dataorder, TODO: find more
-
+#do training and so much more
 def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
           early_stopper,
             calc_stats=True):
+    #train always returns a copy of the inputted model
     model.to(device)
     model.train()
     optimizer = Hparams.get_optimizer(model, training_hparams)
@@ -83,7 +80,7 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
                     print("Stopped early")
                     print("Trained for " + str(iter) + " Iterations.")
                     print("Got minimum validation loss in early stopper: ", early_stopper.min_val_loss)
-                    return rewind_point, all_stats, early_stopper.best_model
+                    return rewind_point, all_stats, early_stopper.best_model #implicit copy of original network
             
             running_loss = 0.0
             if iter % dataloaderhelper.epochs_to_iter(1) == 0:
@@ -92,42 +89,70 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
             iter += 1
             if iter >= max_iter:
                 print("Trained for " + str(iter) + " Iterations.")
+                best_model = Resnet_N_W(model_hparams)
+                if not Resnet_N_W.check_if_pruned(model):
+                #try loading unpruned model
+                    best_model.load_state_dict(model.state_dict())
+                else:
+                    best_model.prune(1, "identity")
+                    best_model.load_state_dict(model.state_dict())  
+                
                 return rewind_point, all_stats, model
 
 
-def imp(model, random_state,
+def imp(device, model, pruning_stopper,
         training_hparams, pruning_hparams, saving_models_path,
         dataloaderhelper):
     #TODO: replace pruning level by early stopping
-    #TODO: Add calculation of statistics
     max_pruning_level = pruning_hparams.max_pruning_level
     rewind_iter = pruning_hparams.rewind_iter
-    with utils.TorchRandomSeed(random_state):
-        #save initial model
-        torch.save(model.state_dict(), saving_models_path / "resnet-0.pth")
-        rewind_point, all_stats = train(
-                    model,
-                    rewind_iter,
-                    training_hparams,
-                    dataloaderhelper,
-                    calc_stats = False
-                )
-        for L in range(1, max_pruning_level):
-            #do training
-            train(
+    models = []
+    all_model_stats = []
+    #save initial model
+    models.append(model)
+    all_model_stats.append([0]) #initial model doesnt need stats calculated
+    rewind_point, all_stats, _ = train(
                 model,
                 rewind_iter,
                 training_hparams,
-                dataloaderhelper
+                dataloaderhelper,
+                calc_stats = False
             )
-            #pruning
-            model.prune(
-                prune_ratio = pruning_hparams.pruning_ratio,
-                method = pruning_hparams.pruning_method
-            )
-            torch.save(model.state_dict(), saving_models_path / ("resnet-" + str(L + 1) + ".pth"))
-            #rewind
-            model.rewind(rewind_point)
+    for L in range(1, max_pruning_level):
+        #do training
+        _, all_stats, best_model = train(
+            model,
+            rewind_iter,
+            training_hparams,
+            dataloaderhelper
+        )
+        #pruning
+        best_model.prune(
+            prune_ratio = pruning_hparams.pruning_ratio,
+            method = pruning_hparams.pruning_method
+        )
+        #create copy of found network and save it:
+        save_model = Resnet_N_W(best_model.model_hparams)
+        save_model.load_state_dict(best_model.state_dict())
+        models.append(save_model)
+
+        #test if early stop
+        test_loss = get_loss(device, model, dataloaderhelper.testloader, training_hparams.loss_criterion)
+        print('|' + str(L) + '| test_loss: ' + str(test_loss))
+        all_stats["test_loss"] = test_loss
+        #save statistics calculated during training
+        all_model_stats.append(all_stats)
+        
+        if pruning_stopper(best_model, test_loss):
+            print("Stopped early")
+            print("Trained for " + str(L) + " Pruning-Iterations.")
+            print("Got minimum test loss in early stopper: ", pruning_stopper.min_val_loss)
+            return models, all_model_stats
+        
+        #rewind model
+        best_model.rewind(rewind_point)
+    
+    return models, all_model_stats
 
 def get_loss(device, model, dataloader, loss_criterion):
     with torch.no_grad():
@@ -196,45 +221,6 @@ def calculate_stats(device, model, loss_criterion,
             "val_acc" : val_accuracy,
             "test_loss" : test_loss,
             "test_acc" : test_accuracy}
-
-"""
-models_path = workdir / "models"
-if not models_path.exists():
-    models_path.mkdir(parents=True)
-
-saving_models_path = models_path / "experiment1"
-if not saving_models_path.exists():
-    saving_models_path.mkdir(parents=True)
-
-#initialize hyperparemeters
-training_hparams = Hparams.TrainingHparams(num_epoch=1, milestone_steps=[2])
-pruning_hparams = Hparams.PruningHparams()
-model_hparams = Hparams.ModelHparams()
-
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-#create model
-plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
-resnet20model = Resnet_N_W(plan, initializer, model_hparams.initialization_seed, outputs)
-#naming convention: resnet-N-W_<num_epoch>_<1.milestone>_<2.milestone>
-
-import time
-start = time.time()
-imp(
-    resnet20model,
-    training_hparams,
-    pruning_hparams,
-    saving_models_path,
-    trainloader,
-    valloader,
-    testloader,
-    max_pruning_level = 1,
-    rewind_iter = 20
-    )
-end = time.time()
-print("Time of IMP:", end - start)
-"""
 
 def save_experiment(
         path,
