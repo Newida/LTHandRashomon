@@ -90,7 +90,7 @@ def e1_train_val_loss(name, description):
                              model_hparams,
                              [best_model],
                              [all_stats],
-                             False)
+                             True)
     #5. Plot some results
     x_iter = []
     y_running_loss = []

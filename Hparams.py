@@ -20,7 +20,8 @@ class Hparams(object):
                       num_epoch = 160,
                       milestone_steps = [80, 120],
                       patience = 10,
-                      min_delta = 0) -> None:
+                      min_delta = 2) -> None:
+            
             self.optimizer_name = optimizer_name
             self.lr = lr
             self.data_order_seed = data_order_seed

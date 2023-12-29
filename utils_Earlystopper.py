@@ -1,7 +1,7 @@
 from resnet20 import Resnet_N_W
 
 class EarlyStopper:
-    def __init__(self, model_hparams, patience = 10, min_delta = 0) -> None:
+    def __init__(self, model_hparams, patience, min_delta) -> None:
         self.patience = patience
         self.min_delta = min_delta
         self.counter = 0
