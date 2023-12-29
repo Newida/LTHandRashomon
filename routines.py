@@ -60,7 +60,7 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
             optimizer.step()
 
             running_loss += loss.item()
-            if iter % 100 == 0:
+            if iter % 1000 == 0:
                 print(f'[{iter}] loss: {running_loss:.3f}')
                 if calc_stats:
                     stats = calculate_stats(device, model, loss_criterion,
