@@ -147,7 +147,7 @@ def e2_rewind_iteration(name, description, rewind_iter):
         gamma = 0.01,
         milestone_steps = [100, 150])
     pruning_hparams = Hparams.PruningHparams(
-        pruning_stopper_patience = 4,
+        pruning_stopper_patience = 3,
         pruning_stopper_min_delta = 4,
         max_pruning_level = 15,
         rewind_iter = rewind_iter
@@ -208,11 +208,13 @@ def e2_rewind_iteration(name, description, rewind_iter):
 
 
 start = time.time()
-stats = e2_rewind_iteration("e2_2", "rewind_iter = 0", 0)
+e2_rewind_iteration("e2_3", "rewind_iter = 200", 0)
 end = time.time()
 print("Time of Experiment 2:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_2")
-model = models[0]
-model.to(device)
-print("Test_acc: ", routines.get_accuracy(device, model, testloader))
-print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_3")
+print("#models: ", len(models))
+for L, model in enumerate(models):
+    model.to(device)
+    print("Pruning depth: ", L)
+    print("Test_acc: ", routines.get_accuracy(device, model, testloader))
+    print("Train_acc: ",routines.get_accuracy(device, model, trainloader))

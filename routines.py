@@ -118,7 +118,6 @@ def imp(device,
     save_model.load_state_dict(model.state_dict())
     models.append(save_model)
 
-    model.to(device)
     dataloaderhelper.reset_testoader_generator()
     test_loss = get_loss(device, model, dataloaderhelper.testloader, loss_criterion)
     print('|' + str(-1) + '| test_loss: ' + str(test_loss))
@@ -156,7 +155,7 @@ def imp(device,
         all_model_stats.append(all_stats)
         
         if pruning_stopper(best_model, test_loss):
-            print("Stopped early")
+            print("Pruning: Stopped early")
             print("Trained for " + str(L) + " Pruning-Iterations.")
             print("Got minimum test loss in early stopper: ", pruning_stopper.min_val_loss)
             return models, all_model_stats, pruning_stopper.best_model
@@ -168,6 +167,7 @@ def imp(device,
 
 def get_loss(device, model, dataloader, loss_criterion):
     with torch.no_grad():
+        model.to(device)
         cumulated_loss = 0
         for data in dataloader:
             images, labels = data

@@ -206,18 +206,13 @@ print("pruned:", pruned)
 print("unpruned:", unpruned)
 print("total: ", pruned + unpruned)
 
-"""#sparsity check fix this and include it into calculate_stats
-print(
-    "Global sparsity: {:.2f}%".format(
-        100. * float(
-            np.sum([torch.sum(module.weight == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
-            + np.sum([torch.sum(module.bias == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
-        / float(
-            np.sum([module.weight.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
-            + np.sum([module.bias.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
-        )
-    )
-    """
+def calculate_sparsity(model):
+    #sparsity check
+    np.sum([torch.sum(module.weight == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
+    + np.sum([torch.sum(module.bias == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
+        #/ float(
+        #    np.sum([module.weight.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
+        #    + np.sum([module.bias.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
 
 #How to reproduces the a single shuffeling
 generator = torch.Generator()
@@ -351,9 +346,6 @@ model2 = Resnet_N_W(model_hparams)
 print("Are model1 and model2 the same at initalization?", compare_models(model1, model2))
 early_stopper1 = EarlyStopper(model_hparams, patience=10, min_delta=0)
 early_stopper2 = EarlyStopper(model_hparams, patience=10, min_delta=0)
-#TODO: early stopping breaks at different times even though it should not
-#hence as long as training ends due to max_iter beeing reached, the networks stay the same
-#otherwise they don't. But I don't know why early stopping doesn't work right now.
 skip2 = True
 if not skip2:
     _, all_stats = routines.train(device,
