@@ -41,12 +41,12 @@ def train(device,
         raise ValueError("rewind_iter must be smaller than " + str(max_iter))
     print("Started training for " + str(max_iter) + " iterations ...")
     running_loss = 0.0
+    rewind_point = None
     while True:
         for data in trainloader:
             #create rewind point
-            if iter == rewind_iter:
-                model_hparams = Hparams.ModelHparams(model.plan, model.initializer, model.outputs, model.weight_seed)
-                rewind_point = Resnet_N_W(model_hparams)
+            if iter == rewind_iter and not Resnet_N_W.check_if_pruned(model):
+                rewind_point = Resnet_N_W(model.model_hparams)
                 rewind_point.load_state_dict(model.state_dict())
             
             inputs, labels = data
@@ -92,7 +92,7 @@ def train(device,
             iter += 1
             if iter >= max_iter:
                 print("Trained for " + str(iter) + " Iterations.")
-                best_model = Resnet_N_W(model_hparams)
+                best_model = Resnet_N_W(model.model_hparams)
                 if not Resnet_N_W.check_if_pruned(model):
                 #try loading unpruned model
                     best_model.load_state_dict(model.state_dict())
@@ -108,29 +108,34 @@ def imp(device,
         early_stopper, pruning_stopper,
         training_hparams, pruning_hparams,
         dataloaderhelper):
+    loss_criterion = Hparams.get_loss_criterion(training_hparams)
     max_pruning_level = pruning_hparams.max_pruning_level
     rewind_iter = pruning_hparams.rewind_iter
     models = []
     all_model_stats = []
-    #save initial model
-    models.append(model)
-    all_model_stats.append([0]) #initial model doesnt need stats calculated
-    rewind_point, all_stats, _ = train(
-                device,
-                model, rewind_iter,
-                dataloaderhelper, training_hparams,
-                early_stopper,
-                calc_stats = False
-            )
-    for L in range(1, max_pruning_level):
+    #create copy of initial network and save it:
+    save_model = Resnet_N_W(model.model_hparams)
+    save_model.load_state_dict(model.state_dict())
+    models.append(save_model)
+
+    model.to(device)
+    dataloaderhelper.reset_testoader_generator()
+    test_loss = get_loss(device, model, dataloaderhelper.testloader, loss_criterion)
+    print('|' + str(-1) + '| test_loss: ' + str(test_loss))
+        
+    all_model_stats.append([[-1, {"test_loss": test_loss}]]) #initial model doesnt need stats calculated
+    rewind_point = None
+    for L in range(0, max_pruning_level):
         #do training
-        _, all_stats, best_model = train(
+        rewind_model, all_stats, best_model = train(
             device,
             model, rewind_iter,
             dataloaderhelper, training_hparams,
             early_stopper,
             False
         )
+        if rewind_point is None:
+            rewind_point = rewind_model
         #pruning
         best_model.prune(
             prune_ratio = pruning_hparams.pruning_ratio,
@@ -138,14 +143,15 @@ def imp(device,
         )
         #create copy of found network and save it:
         save_model = Resnet_N_W(best_model.model_hparams)
+        save_model.prune(1, "identity")
         save_model.load_state_dict(best_model.state_dict())
         models.append(save_model)
 
         #test if early stop
-        dataloaderhelper.reset_testloader()
-        test_loss = get_loss(device, best_model, dataloaderhelper.testloader, training_hparams.loss_criterion)
+        dataloaderhelper.reset_testoader_generator()
+        test_loss = get_loss(device, best_model, dataloaderhelper.testloader, loss_criterion)
         print('|' + str(L) + '| test_loss: ' + str(test_loss))
-        all_stats.append({"test_loss" : test_loss})
+        all_stats.append([-1, {"test_loss" : test_loss}])
         #save statistics calculated during training
         all_model_stats.append(all_stats)
         
@@ -308,8 +314,7 @@ def linear_mode_connected(device, model1, model2, dataloader):
     #TODO: test if this actually does what it should
     with torch.no_grad():
         betas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-        model_hparams = Hparams.ModelHparams(model1.plan, model1.initializer, model1.outputs, model1.weight_seed)
-        convex_network = Resnet_N_W(model_hparams)
+        convex_network = Resnet_N_W(model1.model_hparams)
         #make sure model1 and model2 are "pruned", i.e. have weight_orig and mask attributes
         model1.prune(1, "identity")
         model2.prune(1, "identity")

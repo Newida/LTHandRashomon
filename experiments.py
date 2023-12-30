@@ -135,7 +135,7 @@ print("Test_acc: ", routines.get_accuracy(device, model, testloader))
 print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
 """
 
-def e2_rewind_iteration(name, description):
+def e2_rewind_iteration(name, description, rewind_iter):
     #initialize network
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(
@@ -149,7 +149,8 @@ def e2_rewind_iteration(name, description):
     pruning_hparams = Hparams.PruningHparams(
         pruning_stopper_patience = 4,
         pruning_stopper_min_delta = 4,
-        max_pruning_level = 14
+        max_pruning_level = 15,
+        rewind_iter = rewind_iter
     )
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
@@ -190,7 +191,7 @@ def e2_rewind_iteration(name, description):
     y_test_loss = []
     for L, stats in enumerate(all_model_stats):
         L_pruning_level.append(L)
-        y_test_loss.append(stats[-1]['test_loss'])
+        y_test_loss.append(stats[-1][1]['test_loss'])
 
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"
@@ -207,10 +208,10 @@ def e2_rewind_iteration(name, description):
 
 
 start = time.time()
-stats = e2_rewind_iteration("e2", "first test of IMP")
+stats = e2_rewind_iteration("e2_2", "rewind_iter = 0", 0)
 end = time.time()
 print("Time of Experiment 2:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_2")
 model = models[0]
 model.to(device)
 print("Test_acc: ", routines.get_accuracy(device, model, testloader))

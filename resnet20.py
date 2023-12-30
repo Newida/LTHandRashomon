@@ -64,6 +64,7 @@ class Resnet_N_W(nn.Module):
             self.apply(initializer)
 
         # Helpful attributes that describe state and structure of network
+        self.model_hparams = model_hparams
         self.plan = plan
         self.initializer = initializer
         self.outputs = outputs 
