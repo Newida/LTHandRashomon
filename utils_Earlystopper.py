@@ -4,6 +4,7 @@ class EarlyStopper:
     def __init__(self, model_hparams, patience, min_delta) -> None:
         self.patience = patience
         self.min_delta = min_delta
+        self.model_hparams = model_hparams
         self.counter = 0
         self.min_val_loss = float('inf')
         self.best_model = Resnet_N_W(model_hparams)
@@ -23,3 +24,8 @@ class EarlyStopper:
             if self.counter >= self.patience:
                 return True
         return False
+    
+    def reset(self):
+        self.counter = 0
+        self.min_val_loss = float('inf')
+        self.best_model = Resnet_N_W(self.model_hparams)

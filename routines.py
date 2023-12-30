@@ -133,6 +133,7 @@ def imp(device,
             early_stopper,
             False
         )
+        early_stopper.reset()
         if rewind_point is None:
             rewind_point = rewind_model
         #pruning
@@ -162,7 +163,8 @@ def imp(device,
         
         #rewind model
         best_model.rewind(rewind_point)
-    
+        print("Density of model:", Resnet_N_W.calculate_density(best_model))
+
     return models, all_model_stats, best_model
 
 def get_loss(device, model, dataloader, loss_criterion):
@@ -313,7 +315,7 @@ def load_experiment(path):
 def linear_mode_connected(device, model1, model2, dataloader):
     #TODO: test if this actually does what it should
     with torch.no_grad():
-        betas = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+        betas = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
         convex_network = Resnet_N_W(model1.model_hparams)
         #make sure model1 and model2 are "pruned", i.e. have weight_orig and mask attributes
         model1.prune(1, "identity")

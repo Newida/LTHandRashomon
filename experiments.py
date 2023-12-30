@@ -3,6 +3,8 @@ import torch
 import time
 from pathlib import Path
 import matplotlib.pyplot as plt
+import itertools
+import numpy as np
 import torchvision
 import torchvision.transforms as transforms
 from resnet20 import Resnet_N_W
@@ -10,6 +12,7 @@ from Hparams import Hparams
 from utils_Earlystopper import EarlyStopper
 import utils
 import routines
+
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -150,7 +153,8 @@ def e2_rewind_iteration(name, description, rewind_iter):
         pruning_stopper_patience = 3,
         pruning_stopper_min_delta = 4,
         max_pruning_level = 15,
-        rewind_iter = rewind_iter
+        rewind_iter = rewind_iter,
+        pruning_ratio = 0.1
     )
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
@@ -207,14 +211,41 @@ def e2_rewind_iteration(name, description, rewind_iter):
     return 
 
 
-start = time.time()
-e2_rewind_iteration("e2_3", "rewind_iter = 200", 0)
+"""start = time.time()
+e2_rewind_iteration("e2_4", "rewind_iter = 200, pruing_ratio = 0.1", 0)
 end = time.time()
 print("Time of Experiment 2:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_3")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_4")
 print("#models: ", len(models))
 for L, model in enumerate(models):
     model.to(device)
     print("Pruning depth: ", L)
     print("Test_acc: ", routines.get_accuracy(device, model, testloader))
     print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
+"""
+
+def test_linear_mode_connectivity(name):
+    workdir = Path.cwd()
+    
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    saving_experiments_path = experiments_path / name
+    if not saving_experiments_path.exists():
+        raise ValueError("Exerpiment does not exists.")
+
+    models, all_stats, _1, _2, _3, _4 = routines.load_experiment(saving_experiments_path)
+    all_errors = []
+    a, b = itertools.tee(models[1:])
+    next(b, None)
+    for model1, model2 in  zip(a, b):
+        all_errors += routines.linear_mode_connected(
+            device,
+            model1, model2,
+            testloader)
+
+    plt.plot(np.linspace(0, len(models), num=11*len(models)-1), all_errors) #11 since len(beta) = 11
+    plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
+    
+test_linear_mode_connectivity("e2_2")
