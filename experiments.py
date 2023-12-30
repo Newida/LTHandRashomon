@@ -54,13 +54,16 @@ with utils.TorchRandomSeed(random_state):
     valloader = dataloaderhelper.get_validation_loader(valset)
 
 def e1_train_val_loss(name, description):
-    #Look at training routine
     #initialize network
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(
         split_seed=dataloaderhelper.split_seed,
         data_order_seed=dataloaderhelper.data_order_seed,
-        num_epoch=200)
+        patience = 10,
+        min_delta = 4,
+        num_epoch = 200,
+        gamma = 0.01,
+        milestone_steps = [100, 150])
     pruning_hparams = Hparams.PruningHparams()
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
@@ -111,13 +114,95 @@ def e1_train_val_loss(name, description):
         raise ValueError("Exerpiment does not exists.")
     
     plt.plot(x_iter, y_running_loss)
+    plt.yscale('log')
+    plt.savefig(saving_experiments_path / "running_loss.png")
+    plt.clf()
+    plt.plot(x_iter, y_val_loss)
+    plt.yscale('log')
+    plt.savefig(saving_experiments_path / "vall_loss.png")
+    return all_stats
+
+import time
+start = time.time()
+stats = e1_train_val_loss("e1_4", "200 epoch training of network, version 3 of experiment 1 with different LR milestones and gamma set to 0.01 and [100, 150]")
+end = time.time()
+print("Time of Experiment 1:", end - start)
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e1")
+model = models[0]
+model.to(device)
+print("Test_acc: ", routines.get_accuracy(device, model, testloader))
+print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
+"""
+def e2_rewind_iteration(name, description):
+    #initialize network
+    #1. Setup hyperparameters
+    training_hparams = Hparams.TrainingHparams(
+        split_seed=dataloaderhelper.split_seed,
+        data_order_seed=dataloaderhelper.data_order_seed,
+        num_epoch=300)
+    pruning_hparams = Hparams.PruningHparams()
+    model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
+    model_hparams = Hparams.ModelHparams(
+        model_structure, initializer, outputs, initialization_seed=0)
+    #2. Setup model
+    model = Resnet_N_W(model_hparams)
+    #3. Train model
+    early_stopper = EarlyStopper(
+        model_hparams,
+        patience=training_hparams.early_stopper_patience,
+        min_delta=training_hparams.early_stopper_min_delta)
+    
+    pruning_stopper = EarlyStopper(
+        model_hparams,
+        patience=pruning_hparams.pruning_stopper_patience,
+        min_delta=pruning_hparams.pruning_stopper_min_delta)
+
+    #TODO: you stopped here
+    _, all_stats, best_model = routines.imp(device,
+        model,
+        pruning_stopper=early_stopper,
+        dataloaderhelper,
+        training_hparams,
+        early_stopper,
+        True
+        )
+    #4. Save model and statistics
+    routines.save_experiment(name,
+                             description,
+                             dataset_hparams,
+                             training_hparams,
+                             pruning_hparams,
+                             model_hparams,
+                             [best_model],
+                             [all_stats],
+                             True)
+    #5. Plot some results
+    x_iter = []
+    y_running_loss = []
+    y_val_loss = []
+    for stats in all_stats:
+        x_iter.append(stats[0])
+        stats = stats[1]
+        y_running_loss.append(stats['running_loss'])
+        y_val_loss.append(stats['val_loss'])
+
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    saving_experiments_path = experiments_path / name
+    if not saving_experiments_path.exists():
+        raise ValueError("Exerpiment does not exists.")
+    
+    plt.plot(x_iter, y_running_loss)
     plt.savefig(saving_experiments_path / "running_loss.png")
     plt.clf()
     plt.plot(x_iter, y_val_loss)
     plt.savefig(saving_experiments_path / "vall_loss.png")
     return all_stats
 
-import time
+
 start = time.time()
 stats = e1_train_val_loss("e1", "200 epoch training of network")
 end = time.time()
@@ -127,3 +212,4 @@ model = models[0]
 model.to(device)
 print("Test_acc: ", routines.get_accuracy(device, model, testloader))
 print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
+"""

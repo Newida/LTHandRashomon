@@ -101,10 +101,10 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
                 return rewind_point, all_stats, model
 
 
-def imp(device, model, pruning_stopper,
+def imp(device,
+        model, pruning_stopper,
         training_hparams, pruning_hparams, saving_models_path,
         dataloaderhelper):
-    #TODO: replace pruning level by early stopping
     max_pruning_level = pruning_hparams.max_pruning_level
     rewind_iter = pruning_hparams.rewind_iter
     models = []

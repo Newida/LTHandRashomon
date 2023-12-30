@@ -20,7 +20,7 @@ class Hparams(object):
                       num_epoch = 160,
                       milestone_steps = [80, 120],
                       patience = 10,
-                      min_delta = 2) -> None:
+                      min_delta = 4) -> None:
             
             self.optimizer_name = optimizer_name
             self.lr = lr
@@ -37,11 +37,19 @@ class Hparams(object):
             self.early_stopper_min_delta = min_delta
 
     class PruningHparams():
-        def __init__(self, max_pruning_level = 12, rewind_iter = 0, pruning_ratio = 0.2, method = "l1") -> None:
+        def __init__(self,
+                    max_pruning_level = 12,
+                    rewind_iter = 0,
+                    pruning_ratio = 0.2,
+                    method = "l1",
+                    pruning_stopper_patience = 3,
+                    pruning_stopper_min_delta = 0) -> None:
             self.pruning_ratio = pruning_ratio
             self.pruning_method = method
             self.max_pruning_level = max_pruning_level
             self.rewind_iter = rewind_iter
+            self.pruning_stopper_patience = pruning_stopper_patience
+            self.pruning_stopper_min_delta = pruning_stopper_min_delta
              
     @staticmethod
     def get_optimizer(model, trainingHparams):
