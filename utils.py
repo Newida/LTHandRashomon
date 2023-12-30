@@ -83,6 +83,9 @@ class DataLoaderHelper():
     def reset_valloader_generator(self):
         self.validationloader.generator.manual_seed(self.val_seed)
 
+    def reset_testoader_generator(self):
+        self.validationloader.generator.manual_seed(self.test_seed)
+
     def reset_trainloader_generator(self):
         random_sampler = self.trainloader.sampler
         generator = self.trainloader.sampler.generator

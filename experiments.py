@@ -1,6 +1,8 @@
 import pickle
 import torch
+import time
 from pathlib import Path
+import matplotlib.pyplot as plt
 import torchvision
 import torchvision.transforms as transforms
 from resnet20 import Resnet_N_W
@@ -8,7 +10,6 @@ from Hparams import Hparams
 from utils_Earlystopper import EarlyStopper
 import utils
 import routines
-import matplotlib.pyplot as plt
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -120,9 +121,9 @@ def e1_train_val_loss(name, description):
     plt.plot(x_iter, y_val_loss)
     plt.yscale('log')
     plt.savefig(saving_experiments_path / "vall_loss.png")
-    return all_stats
+    return
 
-import time
+"""
 start = time.time()
 stats = e1_train_val_loss("e1_4", "200 epoch training of network, version 3 of experiment 1 with different LR milestones and gamma set to 0.01 and [100, 150]")
 end = time.time()
@@ -133,38 +134,46 @@ model.to(device)
 print("Test_acc: ", routines.get_accuracy(device, model, testloader))
 print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
 """
+
 def e2_rewind_iteration(name, description):
     #initialize network
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(
         split_seed=dataloaderhelper.split_seed,
         data_order_seed=dataloaderhelper.data_order_seed,
-        num_epoch=300)
-    pruning_hparams = Hparams.PruningHparams()
+        patience = 10,
+        min_delta = 4,
+        num_epoch = 200,
+        gamma = 0.01,
+        milestone_steps = [100, 150])
+    pruning_hparams = Hparams.PruningHparams(
+        pruning_stopper_patience = 4,
+        pruning_stopper_min_delta = 4,
+        max_pruning_level = 14
+    )
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
-        model_structure, initializer, outputs, initialization_seed=0)
+        model_structure, initializer, outputs, initialization_seed=0
+        )
     #2. Setup model
     model = Resnet_N_W(model_hparams)
     #3. Train model
     early_stopper = EarlyStopper(
         model_hparams,
         patience=training_hparams.early_stopper_patience,
-        min_delta=training_hparams.early_stopper_min_delta)
-    
+        min_delta=training_hparams.early_stopper_min_delta
+        )
     pruning_stopper = EarlyStopper(
         model_hparams,
         patience=pruning_hparams.pruning_stopper_patience,
-        min_delta=pruning_hparams.pruning_stopper_min_delta)
-
-    #TODO: you stopped here
-    _, all_stats, best_model = routines.imp(device,
+        min_delta=pruning_hparams.pruning_stopper_min_delta
+        )
+    models, all_model_stats, best_model = routines.imp(
+        device,
         model,
-        pruning_stopper=early_stopper,
-        dataloaderhelper,
-        training_hparams,
-        early_stopper,
-        True
+        early_stopper, pruning_stopper,
+        training_hparams, pruning_hparams,
+        dataloaderhelper
         )
     #4. Save model and statistics
     routines.save_experiment(name,
@@ -173,18 +182,15 @@ def e2_rewind_iteration(name, description):
                              training_hparams,
                              pruning_hparams,
                              model_hparams,
-                             [best_model],
-                             [all_stats],
+                             models,
+                             all_model_stats,
                              True)
     #5. Plot some results
-    x_iter = []
-    y_running_loss = []
-    y_val_loss = []
-    for stats in all_stats:
-        x_iter.append(stats[0])
-        stats = stats[1]
-        y_running_loss.append(stats['running_loss'])
-        y_val_loss.append(stats['val_loss'])
+    L_pruning_level = []
+    y_test_loss = []
+    for L, stats in enumerate(all_model_stats):
+        L_pruning_level.append(L)
+        y_test_loss.append(stats[-1]['test_loss'])
 
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"
@@ -195,21 +201,17 @@ def e2_rewind_iteration(name, description):
     if not saving_experiments_path.exists():
         raise ValueError("Exerpiment does not exists.")
     
-    plt.plot(x_iter, y_running_loss)
-    plt.savefig(saving_experiments_path / "running_loss.png")
-    plt.clf()
-    plt.plot(x_iter, y_val_loss)
-    plt.savefig(saving_experiments_path / "vall_loss.png")
-    return all_stats
+    plt.plot(L_pruning_level, y_test_loss)
+    plt.savefig(saving_experiments_path / "test_loss.png")
+    return 
 
 
 start = time.time()
-stats = e1_train_val_loss("e1", "200 epoch training of network")
+stats = e2_rewind_iteration("e2", "first test of IMP")
 end = time.time()
-print("Time of Experiment 1:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e1")
+print("Time of Experiment 2:", end - start)
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2")
 model = models[0]
 model.to(device)
 print("Test_acc: ", routines.get_accuracy(device, model, testloader))
 print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
-"""

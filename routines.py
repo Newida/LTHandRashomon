@@ -16,9 +16,11 @@ except NameError or ModuleNotFoundError:
     pass
 
 #do training and so much more
-def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
+def train(device,
+          model, rewind_iter,
+          dataloaderhelper, training_hparams,
           early_stopper,
-            calc_stats=True):
+          calc_stats=True):
     #train always returns a copy of the inputted model
     model.to(device)
     model.train()
@@ -102,8 +104,9 @@ def train(device, model, rewind_iter, dataloaderhelper, training_hparams,
 
 
 def imp(device,
-        model, pruning_stopper,
-        training_hparams, pruning_hparams, saving_models_path,
+        model,
+        early_stopper, pruning_stopper,
+        training_hparams, pruning_hparams,
         dataloaderhelper):
     max_pruning_level = pruning_hparams.max_pruning_level
     rewind_iter = pruning_hparams.rewind_iter
@@ -113,19 +116,20 @@ def imp(device,
     models.append(model)
     all_model_stats.append([0]) #initial model doesnt need stats calculated
     rewind_point, all_stats, _ = train(
-                model,
-                rewind_iter,
-                training_hparams,
-                dataloaderhelper,
+                device,
+                model, rewind_iter,
+                dataloaderhelper, training_hparams,
+                early_stopper,
                 calc_stats = False
             )
     for L in range(1, max_pruning_level):
         #do training
         _, all_stats, best_model = train(
-            model,
-            rewind_iter,
-            training_hparams,
-            dataloaderhelper
+            device,
+            model, rewind_iter,
+            dataloaderhelper, training_hparams,
+            early_stopper,
+            False
         )
         #pruning
         best_model.prune(
@@ -138,9 +142,10 @@ def imp(device,
         models.append(save_model)
 
         #test if early stop
-        test_loss = get_loss(device, model, dataloaderhelper.testloader, training_hparams.loss_criterion)
+        dataloaderhelper.reset_testloader()
+        test_loss = get_loss(device, best_model, dataloaderhelper.testloader, training_hparams.loss_criterion)
         print('|' + str(L) + '| test_loss: ' + str(test_loss))
-        all_stats["test_loss"] = test_loss
+        all_stats.append({"test_loss" : test_loss})
         #save statistics calculated during training
         all_model_stats.append(all_stats)
         
@@ -148,12 +153,12 @@ def imp(device,
             print("Stopped early")
             print("Trained for " + str(L) + " Pruning-Iterations.")
             print("Got minimum test loss in early stopper: ", pruning_stopper.min_val_loss)
-            return models, all_model_stats
+            return models, all_model_stats, pruning_stopper.best_model
         
         #rewind model
         best_model.rewind(rewind_point)
     
-    return models, all_model_stats
+    return models, all_model_stats, best_model
 
 def get_loss(device, model, dataloader, loss_criterion):
     with torch.no_grad():
