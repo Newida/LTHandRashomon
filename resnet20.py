@@ -143,11 +143,13 @@ class Resnet_N_W(nn.Module):
     @staticmethod
     def calculate_density(model):
         module_list = Resnet_N_W.get_list_of_all_modules(model)
-        return ((np.sum([torch.sum(module.weight.cpu() == 0) for module in module_list])
-        + np.sum([torch.sum(module.bias.cpu() == 0) if module.bias is not None else 0 for module in module_list])))
+        return (
+        (np.sum([torch.sum(module.weight.cpu() == 0) for module in module_list])
+        + np.sum([torch.sum(module.bias.cpu() == 0) if module.bias is not None else 0 for module in module_list]))
         /
-        (np.sum([module.weight.nelement() for module in Resnet_N_W.get_list_of_all_modules(best_model)])
-        + np.sum([module.bias.nelement() if module.bias is not None else 0 for module in Resnet_N_W.get_list_of_all_modules(best_model)]))
+        (np.sum([module.weight.nelement() for module in module_list])
+        + np.sum([module.bias.nelement() if module.bias is not None else 0 for module in module_list]))
+        )
 
     @staticmethod
     def _copy_weights(source, target):
