@@ -141,7 +141,7 @@ def compare_models(model1, model2):
         return True
 print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
 #train a single epoch
-skip = False
+skip = True
 if not skip:
     resnet20model.to(device)
     resnet20model.train()
@@ -394,4 +394,4 @@ if not skip2:
     print("Are model2 and loaded model2 the same?", compare_models( model2, models2[0]))
 
 print("Testing linear mode connectivity")
-#routines.linear_mode_connected(device, model1, model2, testloader)
+routines.linear_mode_connected(device, model1, model2, testloader)

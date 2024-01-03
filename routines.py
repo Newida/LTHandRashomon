@@ -313,14 +313,19 @@ def load_experiment(path):
 
     return models, all_model_stats, model_hparams, training_hparams, pruning_hparams, dataset_hparams
 
-def linear_mode_connected(device, model1, model2, dataloader):
-    #TODO: test if this actually does what it should
+def linear_mode_connected(device, model1, model2, dataloaderhelper):
+    #TODO: there still seems to be an error in the calculations
     with torch.no_grad():
         betas = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
         convex_network = Resnet_N_W(model1.model_hparams)
-        #make sure model1 and model2 are "pruned", i.e. have weight_orig and mask attributes
-        model1.prune(1, "identity")
-        model2.prune(1, "identity")
+        testloader = dataloaderhelper.testloader
+       
+        if not Resnet_N_W.check_if_pruned(model1):
+            model1.prune(1, "identity")
+        if not Resnet_N_W.check_if_pruned(model1):
+            model2.prune(1, "identity")
+        model2.to(device)
+        convex_network.to(device)
         list_model2 = Resnet_N_W.get_list_of_all_modules(model2)
         list_convex_network = Resnet_N_W.get_list_of_all_modules(convex_network)
         #load model1 state_dict
@@ -330,12 +335,13 @@ def linear_mode_connected(device, model1, model2, dataloader):
         for beta in betas:
             convex_network.load_state_dict(model1.state_dict())
             for source, target in zip(list_model2, list_convex_network):
-                convex_weigths(device, source, target, beta)
-            errors.append(1 - get_accuracy(device, convex_network, dataloader))
-
+                convex_weigths(source, target, beta)
+            dataloaderhelper.reset_testoader_generator()
+            errors.append(1 - get_accuracy(device, convex_network, testloader))
+            
         return errors
     
-def convex_weigths(device, source, target, beta):
+def convex_weigths(source, target, beta):
     with torch.no_grad():
         source.weight_orig.copy_((1 - beta) * source.weight_orig + beta * target.weight_orig)
         if source.bias is not None and target.bias is not None:
