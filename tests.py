@@ -99,7 +99,7 @@ transform = transforms.Compose(
      transforms.Normalize(mean, std)
      ])
 dataset_hparams = Hparams.DatasetHparams()
-dataloaderhelper = DataLoaderHelper(0, 0, dataset_hparams)
+dataloaderhelper = DataLoaderHelper(0, 0, 0, 0, dataset_hparams)
 trainset = dataloaderhelper.get_trainset(data_path, transform)
 trainset, valset = dataloaderhelper.split_train_val(trainset)
 trainloader = dataloaderhelper.get_train_loader(trainset)
@@ -126,22 +126,22 @@ def compare_models(model1, model2):
                             m_r.stride, m_r.padding, m_r.groups]
                 if not all(x == y for x,y in zip(conv_self, conv_r)):
                     return -1
-                if torch.linalg.norm(m_self.weight - m_r.weight) > 1e-10:
+                if torch.linalg.norm(m_self.weight.cpu() - m_r.weight.cpu()) > 1e-10:
                     return -2
             if isinstance(m_self, torch.nn.Linear):
                 linear_self = [m_self.in_features, m_self.out_features]
                 linear_r = [m_r.in_features, m_r.out_features]
                 if not all(x == y for x,y in zip(linear_self, linear_r)):
                     return -1
-                if torch.linalg.norm(m_self.weight - m_r.weight) > 1e-10:
+                if torch.linalg.norm(m_self.weight.cpu() - m_r.weight.cpu()) > 1e-10:
                     return -2
-                if torch.linalg.norm(m_self.bias - m_r.bias) > 1e-10:
+                if torch.linalg.norm(m_self.bias.cpu() - m_r.bias.cpu()) > 1e-10:
                     return -3
                 
         return True
 print("Are resnet and copy the same?", compare_models(resnet20model, resnet20model_copy))
 #train a single epoch
-skip = True
+skip = False
 if not skip:
     resnet20model.to(device)
     resnet20model.train()
@@ -394,4 +394,4 @@ if not skip2:
     print("Are model2 and loaded model2 the same?", compare_models( model2, models2[0]))
 
 print("Testing linear mode connectivity")
-routines.linear_mode_connected(device, model1, model2, testloader)
+#routines.linear_mode_connected(device, model1, model2, testloader)

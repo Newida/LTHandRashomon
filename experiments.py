@@ -154,7 +154,7 @@ def e2_rewind_iteration(name, description, rewind_iter):
         pruning_stopper_min_delta = 4,
         max_pruning_level = 15,
         rewind_iter = rewind_iter,
-        pruning_ratio = 0.1
+        pruning_ratio = 0.2
     )
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
@@ -189,7 +189,7 @@ def e2_rewind_iteration(name, description, rewind_iter):
                              model_hparams,
                              models,
                              all_model_stats,
-                             True)
+                             False)
     #5. Plot some results
     L_pruning_level = []
     y_test_loss = []
@@ -211,18 +211,18 @@ def e2_rewind_iteration(name, description, rewind_iter):
     return 
 
 
-"""start = time.time()
-e2_rewind_iteration("e2_4", "rewind_iter = 200, pruing_ratio = 0.1", 0)
+start = time.time()
+e2_rewind_iteration("e2_3", "rewind_iter = 200, pruing_ratio = 0.2", 200)
 end = time.time()
 print("Time of Experiment 2:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_4")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_3")
 print("#models: ", len(models))
 for L, model in enumerate(models):
     model.to(device)
     print("Pruning depth: ", L)
     print("Test_acc: ", routines.get_accuracy(device, model, testloader))
     print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
-"""
+
 
 def test_linear_mode_connectivity(name):
     workdir = Path.cwd()
@@ -248,4 +248,4 @@ def test_linear_mode_connectivity(name):
     plt.plot(np.linspace(0, len(models), num=11*len(models)-1), all_errors) #11 since len(beta) = 11
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
-test_linear_mode_connectivity("e2_2")
+#test_linear_mode_connectivity("e2_1")

@@ -184,6 +184,7 @@ def get_loss(device, model, dataloader, loss_criterion):
 
 def get_accuracy(device, model, dataloader):
     with torch.no_grad():
+        model.to(device)
         correct = 0
         total = 0
         for data in dataloader:
@@ -296,7 +297,7 @@ def load_experiment(path):
                 model.load_state_dict(torch.load(p))
             except:
                 #loading pruned
-                model.prune(1, "identity")
+                model.prune(1,"identity")
                 model.load_state_dict(torch.load(p))
             models.append(model)
         if p.match('*.list'):
@@ -320,8 +321,6 @@ def linear_mode_connected(device, model1, model2, dataloader):
         #make sure model1 and model2 are "pruned", i.e. have weight_orig and mask attributes
         model1.prune(1, "identity")
         model2.prune(1, "identity")
-        model1.to(device)
-        model2.to(device)
         list_model2 = Resnet_N_W.get_list_of_all_modules(model2)
         list_convex_network = Resnet_N_W.get_list_of_all_modules(convex_network)
         #load model1 state_dict
@@ -329,7 +328,6 @@ def linear_mode_connected(device, model1, model2, dataloader):
         errors = []
 
         for beta in betas:
-            convex_network.to(device)
             convex_network.load_state_dict(model1.state_dict())
             for source, target in zip(list_model2, list_convex_network):
                 convex_weigths(device, source, target, beta)
