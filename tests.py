@@ -188,6 +188,7 @@ print("pruned:", pruned)
 print("unpruned:", unpruned)
 print("total: ", pruned + unpruned)
 print("Testing check_pruned: ", Resnet_N_W.check_if_pruned(resnet20model))
+print("Density:", Resnet_N_W.calculate_density(resnet20model))
 
 print("Testing loaded pruned model: ")
 resnet = Resnet_N_W(model_hparams)
@@ -205,14 +206,6 @@ print("Total expected:", len(loaded_modules))
 print("pruned:", pruned)
 print("unpruned:", unpruned)
 print("total: ", pruned + unpruned)
-
-def calculate_sparsity(model):
-    #sparsity check
-    np.sum([torch.sum(module.weight == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
-    + np.sum([torch.sum(module.bias == 0) for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
-        #/ float(
-        #    np.sum([module.weight.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)])
-        #    + np.sum([module.bias.nelement() for module in Resnet_N_W.get_list_of_all_modules(resnet20model)]))
 
 #How to reproduces the a single shuffeling
 generator = torch.Generator()
@@ -244,7 +237,6 @@ for i, j in zip(all_indices1, all_indices2):
 print("Diff: ", diff)
 print(all_indices1[0][:10])
 print(all_indices2[0][:10])
-
 
 print("Testing for sequence now: ")
 #How to reproduces the a training shuffeling sequence
