@@ -5,7 +5,6 @@ from torch.nn.utils import prune
 from utils import TorchRandomSeed
 import numpy as np
 import tempfile
-from pathlib import Path
 
 class Resnet_N_W(nn.Module):
     """Resnet_N_W as designed for CIFAR-10."""
@@ -221,10 +220,9 @@ class Resnet_N_W(nn.Module):
             )
 
     def copy(self):
-        fd, path = tempfile.mkstemp()
-        torch.save(self, path)
-        copy = torch.load(path)
-        Path.unlink(Path(path))
+        with tempfile.NamedTemporaryFile() as tmp:
+            torch.save(self, tmp.name)
+            copy = torch.load(tmp.name)
         
         return copy    
 
