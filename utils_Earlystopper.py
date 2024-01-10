@@ -13,12 +13,7 @@ class EarlyStopper:
         if val_loss < self.min_val_loss:
             self.min_val_loss = val_loss
             self.counter = 0
-            if not Resnet_N_W.check_if_pruned(model):
-                #try loading unpruned model
-                self.best_model.load_state_dict(model.state_dict())
-            else:
-                self.best_model.prune(1, "identity")
-                self.best_model.load_state_dict(model.state_dict())
+            self.best_model = model.copy()
         elif val_loss > (self.min_val_loss + self.min_delta):
             self.counter += 1
             if self.counter >= self.patience:

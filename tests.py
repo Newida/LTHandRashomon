@@ -338,9 +338,9 @@ model2 = Resnet_N_W(model_hparams)
 print("Are model1 and model2 the same at initalization?", compare_models(model1, model2))
 early_stopper1 = EarlyStopper(model_hparams, patience=10, min_delta=0)
 early_stopper2 = EarlyStopper(model_hparams, patience=10, min_delta=0)
-skip2 = True
+skip2 = False
 if not skip2:
-    _, all_stats = routines.train(device,
+    _, all_stats, best_model = routines.train(device,
         model1,
             0,
             dataloaderhelper,
@@ -353,11 +353,11 @@ if not skip2:
         "test1",
         "to test if get same network, trained for 10 epochs",
         dataset_hparams, training_hparams, pruning_hparams, model_hparams,
-        [model1], [all_stats],
+        [best_model], [all_stats],
         override = True
     )
 
-    _, all_stats = routines.train(device,
+    _, all_stats, best_model2 = routines.train(device,
         model2,
             0,
             dataloaderhelper,
@@ -370,7 +370,7 @@ if not skip2:
         "test2",
         "to test if get same network, trained for 10 epochs",
         dataset_hparams, training_hparams, pruning_hparams, model_hparams,
-        [model2], [all_stats],
+        [best_model2], [all_stats],
         override = True
     )
 
@@ -384,6 +384,3 @@ if not skip2:
     m2 = models2[0]
     m2.to(device)
     print("Are model2 and loaded model2 the same?", compare_models( model2, models2[0]))
-
-print("Testing linear mode connectivity")
-routines.linear_mode_connected(device, model1, model2, testloader)

@@ -46,8 +46,7 @@ def train(device,
         for data in trainloader:
             #create rewind point
             if iter == rewind_iter and not Resnet_N_W.check_if_pruned(model):
-                rewind_point = Resnet_N_W(model.model_hparams)
-                rewind_point.load_state_dict(model.state_dict())
+                rewind_point = model.copy()
             
             inputs, labels = data
             inputs = inputs.to(device)
@@ -92,15 +91,7 @@ def train(device,
             iter += 1
             if iter >= max_iter:
                 print("Trained for " + str(iter) + " Iterations.")
-                best_model = Resnet_N_W(model.model_hparams)
-                if not Resnet_N_W.check_if_pruned(model):
-                #try loading unpruned model
-                    best_model.load_state_dict(model.state_dict())
-                else:
-                    best_model.prune(1, "identity")
-                    best_model.load_state_dict(model.state_dict())  
-                
-                return rewind_point, all_stats, model
+                return rewind_point, all_stats, model.copy()
 
 
 def imp(device,
@@ -114,9 +105,7 @@ def imp(device,
     models = []
     all_model_stats = []
     #create copy of initial network and save it:
-    save_model = Resnet_N_W(model.model_hparams)
-    save_model.load_state_dict(model.state_dict())
-    models.append(save_model)
+    models.append(model.copy)
 
     dataloaderhelper.reset_testoader_generator()
     test_loss = get_loss(device, model, dataloaderhelper.testloader, loss_criterion)
