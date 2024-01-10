@@ -250,5 +250,15 @@ for L, (model1, model2) in enumerate(zip(a, b)):
         device,
         model1, model2,
         dataloaderhelper)
-    all_errors += errors
+    if L == 0:
+        all_errors += errors
+    else:
+        print("Check errors: Expected close to 0:", all_errors[-1] - errors[0])
+        all_errors += errors[1:]
     print("Got errors of: ", errors)
+
+length = len(models) - 2
+print("x:", np.linspace(0, length, num=11*length-1))
+print("y:", all_errors)
+plt.plot(np.linspace(0, length, num=11*length-1), all_errors) #11 since len(beta) = 11
+plt.savefig("linear_mode_connectivity.png")

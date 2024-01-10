@@ -212,8 +212,8 @@ def e2_rewind_iteration(name, description, rewind_iter):
     return 
 
 
-"""start = time.time()
-e2_rewind_iteration("e2_3", "rewind_iter = 200, pruing_ratio = 0.2", 200)
+start = time.time()
+e2_rewind_iteration("e2_1", "rewind_iter = 0, pruing_ratio = 0.2", 200)
 end = time.time()
 print("Time of Experiment 2:", end - start)
 models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_3")
@@ -222,8 +222,8 @@ for L, model in enumerate(models):
     model.to(device)
     print("Pruning depth: ", L)
     print("Test_acc: ", routines.get_accuracy(device, model, testloader))
-    print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
-"""
+    print("Train_acc: ", routines.get_accuracy(device, model, trainloader))
+    print("Density: ", Resnet_N_W.calculate_density(model))
 
 def test_linear_mode_connectivity(name):
     workdir = Path.cwd()
@@ -239,6 +239,7 @@ def test_linear_mode_connectivity(name):
     models, all_stats, _1, _2, _3, _4 = routines.load_experiment(saving_experiments_path)
     all_errors = []
     #since itertools pairwise is not available
+    all_errors = list()
     a, b = itertools.tee(models[1:])
     next(b, None)
     for L, (model1, model2) in enumerate(zip(a, b)):
@@ -247,12 +248,17 @@ def test_linear_mode_connectivity(name):
             device,
             model1, model2,
             dataloaderhelper)
-        all_errors += errors
+        if L == 0:
+            all_errors += errors
+        else:
+            print("Check errors: Expected close to 0:", all_errors[-1] - errors[0])
+            all_errors += errors[1:]
         print("Got errors of: ", errors)
 
-    print("x:", np.linspace(0, len(models), num=11*len(models)-1))
+    length = len(models) - 2
+    print("x:", np.linspace(0, length, num=11*length-1))
     print("y:", all_errors)
-    plt.plot(np.linspace(0, len(models), num=11*len(models)-1), all_errors) #11 since len(beta) = 11
+    plt.plot(np.linspace(0, length, num=11*length-1), all_errors) #11 since len(beta) = 11
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
-test_linear_mode_connectivity("e2_1")
+#test_linear_mode_connectivity("e2_1")
