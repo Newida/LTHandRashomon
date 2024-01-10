@@ -142,10 +142,7 @@ def imp(device,
             method = pruning_hparams.pruning_method
         )
         #create copy of found network and save it:
-        save_model = Resnet_N_W(best_model.model_hparams)
-        save_model.prune(1, "identity")
-        save_model.load_state_dict(best_model.state_dict())
-        models.append(save_model)
+        models.append(best_model.copy())
 
         #test if early stop
         dataloaderhelper.reset_testoader_generator()
@@ -313,11 +310,9 @@ def load_experiment(path):
 
     return models, all_model_stats, model_hparams, training_hparams, pruning_hparams, dataset_hparams
 
-def linear_mode_connected(device, model1, model2, dataloaderhelper):
-    #TODO: there still seems to be an error in the calculations
+
+def linear_mode_connected(device, model1, model2, dataloaderhelper, betas = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]):
     with torch.no_grad():
-        betas = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-        convex_network = Resnet_N_W(model1.model_hparams)
         testloader = dataloaderhelper.testloader
        
         if not Resnet_N_W.check_if_pruned(model1):
@@ -325,28 +320,37 @@ def linear_mode_connected(device, model1, model2, dataloaderhelper):
         if not Resnet_N_W.check_if_pruned(model1):
             model2.prune(1, "identity")
         model2.to(device)
-        convex_network.to(device)
         list_model2 = Resnet_N_W.get_list_of_all_modules(model2)
-        list_convex_network = Resnet_N_W.get_list_of_all_modules(convex_network)
-        #load model1 state_dict
-        convex_network.prune(1, "identity")
+        list_model1 = Resnet_N_W.get_list_of_all_modules(model1)
         errors = []
 
         for beta in betas:
-            convex_network.load_state_dict(model1.state_dict())
-            for source, target in zip(list_model2, list_convex_network):
-                convex_weigths(source, target, beta)
+            convex_network = model1.copy()
+            list_convex_network = Resnet_N_W.get_list_of_all_modules(convex_network)
+            for module in list_convex_network:
+                if isinstance(module, torch.nn.Linear):
+                    torch.nn.utils.prune.remove(module, 'weight')
+                    torch.nn.utils.prune.remove(module, 'bias')
+                elif isinstance(module, torch.nn.BatchNorm2d):
+                    torch.nn.utils.prune.remove(module, 'weight')
+                    torch.nn.utils.prune.remove(module, 'bias')
+                else:
+                    torch.nn.utils.prune.remove(module, 'weight')
+                
+            list_convex_network = Resnet_N_W.get_list_of_all_modules(convex_network)
+            for conv, m1, m2 in zip(list_convex_network, list_model1, list_model2):
+                convex_weigths(conv, m1, m2, beta)
             dataloaderhelper.reset_testoader_generator()
             errors.append(1 - get_accuracy(device, convex_network, testloader))
             
         return errors
     
-def convex_weigths(source, target, beta):
+def convex_weigths(conv, m1, m2, beta):
     with torch.no_grad():
-        source.weight_orig.copy_((1 - beta) * source.weight_orig + beta * target.weight_orig)
-        if source.bias is not None and target.bias is not None:
-            source.bias_orig.copy_((1 - beta) * source.bias_orig + beta * target.bias_orig)
-        elif source.bias is None and target.bias is None:
+        conv.weight.copy_((1 - beta) * m1.weight + beta * m2.weight)
+        if m1.bias is not None and m2.bias is not None:
+            conv.bias.copy_((1 - beta) * m1.bias + beta * m2.bias)
+        elif m1.bias is None and m2.bias is None:
             return
         else:
             raise ValueError("Biases could not be matched")
