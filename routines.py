@@ -113,11 +113,12 @@ def imp(device,
         
     all_model_stats.append([[-1, {"test_loss": test_loss}]]) #initial model doesnt need stats calculated
     rewind_point = None
+    best_model = model
     for L in range(0, max_pruning_level):
         #do training
         rewind_model, all_stats, best_model = train(
             device,
-            model, rewind_iter,
+            best_model, rewind_iter,
             dataloaderhelper, training_hparams,
             early_stopper,
             False
@@ -130,6 +131,7 @@ def imp(device,
             prune_ratio = pruning_hparams.pruning_ratio,
             method = pruning_hparams.pruning_method
         )
+        print("Density: ", Resnet_N_W.calculate_density(best_model))
         #create copy of found network and save it:
         models.append(best_model.copy())
 
