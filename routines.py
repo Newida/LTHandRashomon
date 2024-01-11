@@ -105,7 +105,7 @@ def imp(device,
     models = []
     all_model_stats = []
     #create copy of initial network and save it:
-    models.append(model.copy)
+    models.append(model.copy())
 
     dataloaderhelper.reset_testoader_generator()
     test_loss = get_loss(device, model, dataloaderhelper.testloader, loss_criterion)

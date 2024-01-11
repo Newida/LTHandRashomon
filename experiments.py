@@ -146,13 +146,13 @@ def e2_rewind_iteration(name, description, rewind_iter):
         data_order_seed=dataloaderhelper.data_order_seed,
         patience = 10,
         min_delta = 4,
-        num_epoch = 200,
+        num_epoch = 2, #200
         gamma = 0.01,
         milestone_steps = [100, 150])
     pruning_hparams = Hparams.PruningHparams(
         pruning_stopper_patience = 3,
         pruning_stopper_min_delta = 4,
-        max_pruning_level = 15,
+        max_pruning_level = 2, #15
         rewind_iter = rewind_iter,
         pruning_ratio = 0.2
     )
@@ -213,10 +213,10 @@ def e2_rewind_iteration(name, description, rewind_iter):
 
 
 start = time.time()
-e2_rewind_iteration("e2_1", "rewind_iter = 0, pruing_ratio = 0.2", 200)
+e2_rewind_iteration("e2_1", "rewind_iter = 0, pruing_ratio = 0.2", 0)
 end = time.time()
 print("Time of Experiment 2:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_3")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_1")
 print("#models: ", len(models))
 for L, model in enumerate(models):
     model.to(device)
