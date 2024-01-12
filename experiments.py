@@ -211,61 +211,17 @@ def e2_rewind_iteration(name, description, rewind_iter):
     plt.savefig(saving_experiments_path / "test_loss.png")
     return 
 
-def test_experiment(name, description, rewind_iter):
-    #initialize network
-    #1. Setup hyperparameters
-    training_hparams = Hparams.TrainingHparams(
-        split_seed=dataloaderhelper.split_seed,
-        data_order_seed=dataloaderhelper.data_order_seed,
-        patience = 10,
-        min_delta = 4,
-        num_epoch = 1,
-        gamma = 0.01,
-        milestone_steps = [100, 150])
-    pruning_hparams = Hparams.PruningHparams(
-        pruning_stopper_patience = 3,
-        pruning_stopper_min_delta = 4,
-        max_pruning_level = 1,
-        rewind_iter = rewind_iter,
-        pruning_ratio = 0.2
-    )
-    model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
-    model_hparams = Hparams.ModelHparams(
-        model_structure, initializer, outputs, initialization_seed=0
-        )
-    #2. Setup model
-    model = Resnet_N_W(model_hparams)
-    #3. Train model
-    early_stopper = EarlyStopper(
-        model_hparams,
-        patience=training_hparams.early_stopper_patience,
-        min_delta=training_hparams.early_stopper_min_delta
-        )
-    pruning_stopper = EarlyStopper(
-        model_hparams,
-        patience=pruning_hparams.pruning_stopper_patience,
-        min_delta=pruning_hparams.pruning_stopper_min_delta
-        )
-    models, all_model_stats, best_model = routines.imp(
-        device,
-        model,
-        early_stopper, pruning_stopper,
-        training_hparams, pruning_hparams,
-        dataloaderhelper
-        )
-    #4. Save model and statistics
-    routines.save_experiment(name,
-                             description,
-                             dataset_hparams,
-                             training_hparams,
-                             pruning_hparams,
-                             model_hparams,
-                             models,
-                             all_model_stats,
-                             True)
-    return 
+"""start = time.time()
+stats = e2_rewind_iteration("e2_1", "rewind = 0", 0)
+end = time.time()
+print("Time of Experiment 2:", end - start)
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_2")
+for model in models:
+    model.to(device)
+    print("Test_acc: ", routines.get_accuracy(device, model, testloader))
+    print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
+"""
 
- 
 def test_linear_mode_connectivity(name, step_size = 0.1):
     workdir = Path.cwd()
     
@@ -301,4 +257,4 @@ def test_linear_mode_connectivity(name, step_size = 0.1):
     plt.plot(x, all_errors)
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
-test_linear_mode_connectivity("e2_test", 0.5)
+#test_linear_mode_connectivity("e2_1", 0.1)
