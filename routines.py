@@ -123,18 +123,14 @@ def imp(device,
             early_stopper,
             False
         )
-        early_stopper.reset()
-        if rewind_point is None:
-            rewind_point = rewind_model
-        #pruning
-        best_model.prune(
-            prune_ratio = pruning_hparams.pruning_ratio,
-            method = pruning_hparams.pruning_method
-        )
         print("Density: ", Resnet_N_W.calculate_density(best_model))
         #create copy of found network and save it:
         models.append(best_model.copy())
 
+        early_stopper.reset()
+        if rewind_point is None:
+            rewind_point = rewind_model
+        
         #test if early stop
         dataloaderhelper.reset_testoader_generator()
         test_loss = get_loss(device, best_model, dataloaderhelper.testloader, loss_criterion)
@@ -148,10 +144,15 @@ def imp(device,
             print("Trained for " + str(L) + " Pruning-Iterations.")
             print("Got minimum test loss in early stopper: ", pruning_stopper.min_val_loss)
             return models, all_model_stats, pruning_stopper.best_model
+
+        #pruning
+        best_model.prune(
+            prune_ratio = pruning_hparams.pruning_ratio,
+            method = pruning_hparams.pruning_method
+        )
         
         #rewind model
         best_model.rewind(rewind_point)
-        print("Density of model:", Resnet_N_W.calculate_density(best_model))
 
     return models, all_model_stats, best_model
 
@@ -225,6 +226,34 @@ def calculate_stats(device, model, loss_criterion,
             "test_loss" : test_loss,
             "test_acc" : test_accuracy}
 
+def compare_models(model1, model2):
+    with torch.no_grad():
+        list_self = Resnet_N_W.get_list_of_all_modules(model1)
+        list_rewind = Resnet_N_W.get_list_of_all_modules(model2)
+        for m_self, m_r in zip(list_self, list_rewind):
+            if isinstance(m_self, torch.nn.Conv2d):
+                conv_self = [m_self.in_channels, m_self.out_channels, m_self.kernel_size,
+                            m_self.stride, m_self.padding, m_self.groups]
+                conv_r = [m_r.in_channels, m_r.out_channels, m_r.kernel_size,
+                            m_r.stride, m_r.padding, m_r.groups]
+                if not all(x == y for x,y in zip(conv_self, conv_r)):
+                    return -1
+                d = torch.linalg.norm(m_self.weight.cpu() - m_r.weight.cpu())
+                if torch.linalg.norm(m_self.weight.cpu() - m_r.weight.cpu()) > 1e-16:
+                    return -2
+            if isinstance(m_self, torch.nn.Linear):
+                linear_self = [m_self.in_features, m_self.out_features]
+                linear_r = [m_r.in_features, m_r.out_features]
+                if not all(x == y for x,y in zip(linear_self, linear_r)):
+                    return -1
+                if torch.linalg.norm(m_self.weight.cpu() - m_r.weight.cpu()) > 1e-16:
+                    return -2
+                if torch.linalg.norm(m_self.bias.cpu() - m_r.bias.cpu()) > 1e-16:
+                    return -3
+                
+        return True
+
+
 def save_experiment(
         path,
         description,
@@ -232,6 +261,7 @@ def save_experiment(
         models, all_model_stats,
         override = False
 ):
+    
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"
     if not experiments_path.exists():
@@ -253,7 +283,7 @@ def save_experiment(
     for L, model in enumerate(models):
         model_number = str(L)
         model_name = "model" + "0" * (length-len(model_number)) + model_number + ".pth"
-        torch.save(model.state_dict(), path / model_name)
+        torch.save(model, path / model_name)
     for L, stats in enumerate(all_model_stats):
         with open(path / ("stats" + str(L) + ".list"),"wb") as f2:
             pickle.dump(stats, f2)
@@ -279,16 +309,9 @@ def load_experiment(path):
     all_model_stats = []
     for p in sorted(path.iterdir()):
         if p.match('*.pth'):
-            model = Resnet_N_W(model_hparams)
-            try:
-                #try loading unpruned model
-                model.load_state_dict(torch.load(p))
-            except:
-                #loading pruned
-                model.prune(1,"identity")
-                model.load_state_dict(torch.load(p))
+            model = torch.load(p)
             models.append(model)
-        if p.match('*.list'):
+        elif p.match('*.list'):
             with open(p,"rb") as f2:
                 stats = pickle.load(f2)
                 all_model_stats.append(stats)

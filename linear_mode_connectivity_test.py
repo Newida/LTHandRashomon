@@ -144,9 +144,7 @@ rewind_iter = pruning_hparams.rewind_iter
 models = []
 all_model_stats = []
 #create copy of initial network and save it:
-save_model = Resnet_N_W(model.model_hparams)
-save_model.load_state_dict(model.state_dict())
-models.append(save_model)
+models.append(model.copy())
 
 dataloaderhelper.reset_testoader_generator()
 test_loss = routines.get_loss(device, model, dataloaderhelper.testloader, loss_criterion)

@@ -78,10 +78,8 @@ print("-"*20)
 plan, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
 model_hparams = Hparams.ModelHparams(plan, initializer, outputs, 0)
 resnet20model = Resnet_N_W(model_hparams)
-resnet20model_copy = Resnet_N_W(model_hparams)
-resnet20model_copy.load_state_dict(resnet20model.state_dict())
-resnet20model_untouched = Resnet_N_W(model_hparams)
-resnet20model_untouched.load_state_dict(resnet20model.state_dict())
+resnet20model_copy = resnet20model.copy()
+resnet20model_untouched = resnet20model.copy()
 
 #setting the path to store/load dataset cifar10
 workdir = Path.cwd()
@@ -191,9 +189,7 @@ print("Testing check_pruned: ", Resnet_N_W.check_if_pruned(resnet20model))
 print("Density:", Resnet_N_W.calculate_density(resnet20model))
 
 print("Testing loaded pruned model: ")
-resnet = Resnet_N_W(model_hparams)
-resnet.prune(1, "identity")
-resnet.load_state_dict(resnet20model.state_dict())
+resnet = resnet20model.copy()
 loaded_modules = Resnet_N_W.get_list_of_all_modules(resnet)
 pruned = 0
 unpruned = 0
