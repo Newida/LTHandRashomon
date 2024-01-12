@@ -266,7 +266,7 @@ def test_experiment(name, description, rewind_iter):
     return 
 
  
-def test_linear_mode_connectivity(name):
+def test_linear_mode_connectivity(name, step_size = 0.1):
     workdir = Path.cwd()
     
     experiments_path = workdir / "experiments"
@@ -284,21 +284,21 @@ def test_linear_mode_connectivity(name):
     a, b = itertools.tee(models[1:])
     next(b, None)
     for L, (model1, model2) in enumerate(zip(a, b)):
-        print("Testing pruning depth: " + str(L))
+        print("Calculating pruning depth between " + str(L) + " - " + str(L+1))
         errors = routines.linear_mode_connected(
             device,
             model1, model2,
-            dataloaderhelper)
+            dataloaderhelper,
+            step_size)
         if L == 0:
             all_errors += errors
         else:
             all_errors += errors[1:]
         print("Got errors of: ", errors)
 
-    length = len(models) - 1
-    print("x:", np.linspace(0, length, int(length/0.1)+1))
-    print("y:", all_errors)
-    plt.plot(np.linspace(0, length, num=11*length-1), all_errors) #11 since len(beta) = 11
+    length = len(models) - 2
+    x = np.linspace(0, length, int(length/step_size)+1)
+    plt.plot(x, all_errors)
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
-test_linear_mode_connectivity("e2_test")
+test_linear_mode_connectivity("e2_test", 0.5)

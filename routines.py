@@ -325,7 +325,7 @@ def load_experiment(path):
     return models, all_model_stats, model_hparams, training_hparams, pruning_hparams, dataset_hparams
 
 
-def linear_mode_connected(device, model1, model2, dataloaderhelper, betas = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]):
+def linear_mode_connected(device, model1, model2, dataloaderhelper, step_size = 0.1):
     with torch.no_grad():
         testloader = dataloaderhelper.testloader
        
@@ -337,7 +337,7 @@ def linear_mode_connected(device, model1, model2, dataloaderhelper, betas = [0, 
         list_model2 = Resnet_N_W.get_list_of_all_modules(model2)
         list_model1 = Resnet_N_W.get_list_of_all_modules(model1)
         errors = []
-
+        betas = np.linspace(0, 1, num=int(1/step_size)+1)
         for beta in betas:
             convex_network = model1.copy()
             list_convex_network = Resnet_N_W.get_list_of_all_modules(convex_network)
