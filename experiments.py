@@ -211,16 +211,18 @@ def e2_rewind_iteration(name, description, rewind_iter):
     plt.savefig(saving_experiments_path / "test_loss.png")
     return 
 
-"""start = time.time()
-stats = e2_rewind_iteration("e2_1", "rewind = 0", 0)
+start = time.time()
+stats = e2_rewind_iteration("e2_2", "rewind = 200", 200)
 end = time.time()
 print("Time of Experiment 2:", end - start)
 models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_2")
-for model in models:
+for L, model in enumerate(models[1:]):
     model.to(device)
+    print("Pruning depth: " + str(L))
+    print("Density: ", Resnet_N_W.calculate_density(model))
     print("Test_acc: ", routines.get_accuracy(device, model, testloader))
     print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
-"""
+
 
 def test_linear_mode_connectivity(name, step_size = 0.1):
     workdir = Path.cwd()
@@ -257,4 +259,4 @@ def test_linear_mode_connectivity(name, step_size = 0.1):
     plt.plot(x, all_errors)
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
-#test_linear_mode_connectivity("e2_1", 0.1)
+test_linear_mode_connectivity("e2_2", 0.1)
