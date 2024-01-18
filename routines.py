@@ -368,3 +368,30 @@ def convex_weigths(conv, m1, m2, beta):
             return
         else:
             raise ValueError("Biases could not be matched")
+        
+
+def find_winning_ticket(models, all_model_stats):
+    score = []
+    absolute_min_val_loss = np.inf
+    #disregarding initial model as it cannot be the winner without training
+    for model, model_stats in zip(models[1:], all_model_stats[1:]):
+        min_val_loss = np.inf
+        for stats in model_stats[:-1]:
+            d = stats[1]['val_loss']
+            if d <= min_val_loss:
+                min_val_loss = d
+        density = Resnet_N_W.calculate_density(model)
+        score.append([min_val_loss, density])
+        if min_val_loss < absolute_min_val_loss:
+            absolute_min_val_loss = min_val_loss
+    
+    min_score = np.inf
+    winner_idx = -1
+    for i, model_score in enumerate(score):
+        d = (model_score[0] - absolute_min_val_loss) - 2 * density 
+        if d < min_score:
+            min_score = d
+            winner_idx = i
+    
+    print("winner_idx: ", winner_idx)
+    return models[winner_idx+1] #since we disregarded models[0]

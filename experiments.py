@@ -13,7 +13,6 @@ from utils_Earlystopper import EarlyStopper
 import utils
 import routines
 
-
 try:
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
@@ -35,8 +34,8 @@ with utils.TorchRandomSeed(random_state):
     mean = [0.4914, 0.4822, 0.4465]
     std = [0.2023, 0.1994, 0.2010]
     transform = transforms.Compose(
-        [transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
+        [#transforms.RandomCrop(32, padding=4),
+        #transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean, std)
         ])
@@ -211,19 +210,18 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
     plt.savefig(saving_experiments_path / "test_loss.png")
     return 
 
-"""start = time.time()
-stats = e2_rewind_iteration("e2_4", "rewind = 500, initialization_seed = 42", 500, 42)
+start = time.time()
+stats = e2_rewind_iteration("e2_1", "rewind = 800, initialization_seed = 0, data_order_seed = 0", 800, 0)
 end = time.time()
 print("Time of Experiment 2:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_4")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_7")
 for L, model in enumerate(models[1:]):
     model.to(device)
     print("Pruning depth: " + str(L))
     print("Density: ", Resnet_N_W.calculate_density(model))
     print("Test_acc: ", routines.get_accuracy(device, model, testloader))
     print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
-"""
-
+     
 def test_linear_mode_connectivity(name, step_size = 0.1):
     workdir = Path.cwd()
     
@@ -260,40 +258,13 @@ def test_linear_mode_connectivity(name, step_size = 0.1):
     plt.plot(x, all_errors)
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
-"""start = time.time()
-test_linear_mode_connectivity("e2_4", 0.1)
+start = time.time()
+test_linear_mode_connectivity("e2_1", 0.1)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
-"""
-
-def _find_winning_ticket(models, all_model_stats):
-    score = []
-    absolute_min_val_loss = np.inf
-    #disregarding initial model as it cannot be the winner without training
-    for model, model_stats in zip(models[1:], all_model_stats[1:]):
-        min_val_loss = np.inf
-        for stats in model_stats[:-1]:
-            d = stats[1]['val_loss']
-            if d <= min_val_loss:
-                min_val_loss = d
-        density = Resnet_N_W.calculate_density(model)
-        score.append([min_val_loss, density])
-        if min_val_loss < absolute_min_val_loss:
-            absolute_min_val_loss = min_val_loss
-    
-    min_score = np.inf
-    winner_idx = -1
-    for i, model_score in enumerate(score):
-        d = (model_score[0] - absolute_min_val_loss) - density 
-        if d < min_score:
-            min_score = d
-            winner_idx = i
-    
-    print("winnder_idx:", winner_idx)
-    return models[winner_idx+1] #since we disregarded models[0]
-
 
 def compare_winning_tickets(name1, name2, step_size = 0.1):
+    #TODO: change this function as discussed in meeting
     workdir = Path.cwd()
     
     experiments_path = workdir / "experiments"
@@ -309,10 +280,10 @@ def compare_winning_tickets(name1, name2, step_size = 0.1):
         raise ValueError("Exerpiment does not exists.")
 
     models1, all_stats1, _1, _2, _3, _4 = routines.load_experiment(saving_experiments_path1)
-    winner1 = _find_winning_ticket(models1, all_stats1)
+    winner1 = routines.find_winning_ticket(models1, all_stats1)
 
     models2, all_stats2, _1, _2, _3, _4 = routines.load_experiment(saving_experiments_path2)
-    winner2 = _find_winning_ticket(models2, all_stats2)
+    winner2 = routines.find_winning_ticket(models2, all_stats2)
 
     errors = routines.linear_mode_connected(
             device,
@@ -325,4 +296,4 @@ def compare_winning_tickets(name1, name2, step_size = 0.1):
     plt.plot(x, errors)
     plt.savefig(experiments_path / ("linear_mode_connectivity" + name1 + "_" + name2 + ".png"))
     
-compare_winning_tickets("e2_3", "e2_4")
+#compare_winning_tickets("e2_4", "e2_6")
