@@ -27,34 +27,37 @@ if not data_path.exists():
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-random_state = 0 #TODO: see notes on phone
+rngRandomHflip = utils.RandomHflipTransform(0)
+rngCrop = utils.RandomCropTransform(0)
+dataset_hparams = Hparams.DatasetHparams(
+    test_seed=0,
+    val_seed=0,
+    train_seed=0,
+    split_seed=0,
+    rngCrop=rngCrop,
+    rngRandomHflip=rngRandomHflip,
+    batch_size=128
+)
 
-with utils.TorchRandomSeed(random_state):
 #data augmentation
-    mean = [0.4914, 0.4822, 0.4465]
-    std = [0.2023, 0.1994, 0.2010]
-    transform = transforms.Compose(
-        [#transforms.RandomCrop(32, padding=4),
-        #transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        #transforms.Normalize(mean, std)
-        ])
+transform = transforms.Compose([
+    dataset_hparams.rngCrop,
+    dataset_hparams.rngRandomHflip,
+    transforms.ToTensor(),
+    transforms.Normalize(dataset_hparams.mean, dataset_hparams.std)
+])
 
-    dataset_hparams = Hparams.DatasetHparams()
-    #(down)load dataset cifar10
-    dataloaderhelper = utils.DataLoaderHelper(
-        split_seed=0,
-        data_order_seed=0,
-        val_seed=0,
-        test_seed=0,
-        datasethparams=dataset_hparams
-        )
-    trainset = dataloaderhelper.get_trainset(data_path, transform)
-    testset = dataloaderhelper.get_testset(data_path, transform)
-    trainset, valset = dataloaderhelper.split_train_val(trainset)
-    trainloader = dataloaderhelper.get_train_loader(trainset)
-    testloader = dataloaderhelper.get_test_loader(testset)
-    valloader = dataloaderhelper.get_validation_loader(valset)
+#(down)load dataset cifar10
+dataloaderhelper = utils.DataLoaderHelper(
+    datasethparams=dataset_hparams
+)
+
+trainset = dataloaderhelper.get_trainset(data_path, transform)
+testset = dataloaderhelper.get_testset(data_path, transform)
+trainset, valset = dataloaderhelper.split_train_val(trainset)
+trainloader = dataloaderhelper.get_train_loader(trainset)
+testloader = dataloaderhelper.get_test_loader(testset)
+valloader = dataloaderhelper.get_validation_loader(valset)
 
 def e1_train_val_loss(name, description):
     #initialize network
@@ -63,7 +66,7 @@ def e1_train_val_loss(name, description):
         split_seed=dataloaderhelper.split_seed,
         data_order_seed=dataloaderhelper.data_order_seed,
         patience = 10,
-        min_delta = 4,
+        min_delta = 10,
         num_epoch = 200,
         gamma = 0.01,
         milestone_steps = [120, 150])
@@ -125,19 +128,21 @@ def e1_train_val_loss(name, description):
     plt.savefig(saving_experiments_path / "vall_loss.png")
     return
 
-"""
+
 start = time.time()
-stats = e1_train_val_loss("e1_4", "200 epoch training of network, version 3 of experiment 1 with different LR milestones and gamma set to 0.01 and [100, 150]")
+stats = e1_train_val_loss("e1_1", "test")
 end = time.time()
 print("Time of Experiment 1:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e1")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e1_1")
 model = models[0]
 model.to(device)
 print("Test_acc: ", routines.get_accuracy(device, model, testloader))
 print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
-"""
+
 
 def e2_rewind_iteration(name, description, rewind_iter, init_seed):
+    rngRandomHflip.reset_generator()
+    rngCrop.reset_generator()
     #initialize network
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(
@@ -158,7 +163,7 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
         model_structure, initializer, outputs, initialization_seed=init_seed
-        )
+    )
     #2. Setup model
     model = Resnet_N_W(model_hparams)
     #3. Train model
@@ -210,7 +215,7 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
     plt.savefig(saving_experiments_path / "test_loss.png")
     return 
 
-start = time.time()
+"""start = time.time()
 stats = e2_rewind_iteration("e2_3", "rewind = 0, initialization_seed = 0, data_order_seed = 0", 0, 0)
 end = time.time()
 print("Time of Experiment 2:", end - start)
@@ -221,7 +226,8 @@ for L, model in enumerate(models[1:]):
     print("Density: ", Resnet_N_W.calculate_density(model))
     print("Test_acc: ", routines.get_accuracy(device, model, testloader))
     print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
-  
+  """
+
 def test_linear_mode_connectivity(name, step_size = 0.1):
     workdir = Path.cwd()
     
@@ -255,13 +261,15 @@ def test_linear_mode_connectivity(name, step_size = 0.1):
     length = len(models) - 2
     x = np.linspace(0, length, int(length/step_size)+1)
     plt.clf()
+    plt.xticks(np.arange(0, length+1, 1.0))
     plt.plot(x, all_errors)
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
-start = time.time()
+"""start = time.time()
 test_linear_mode_connectivity("e2_3", 0.1)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
+"""
 
 def compare_winning_tickets(name1, name2, step_size = 0.1):
     #TODO: change this function as discussed in meeting

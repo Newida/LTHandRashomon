@@ -3,8 +3,16 @@ import torch
 class Hparams(object):
     """Collection of all hyperparameters used during training."""
     class DatasetHparams():
-        def __init__(self, batch_size = 128) -> None:
+        def __init__(self, test_seed, val_seed, train_seed, split_seed, rngCrop = None, rngRandomHflip = None, batch_size = 128) -> None:
+            self.mean = [0.4914, 0.4822, 0.4465]
+            self.std = [0.247, 0.243, 0.261]
+            self.rngCrop = rngCrop
+            self.rngRandomHflip = rngRandomHflip
             self.batch_size = batch_size
+            self.test_seed = test_seed
+            self.val_seed = val_seed
+            self.split_seed = split_seed
+            self.train_seed = train_seed     
 
     class ModelHparams():
         def __init__(self, model_structure, initializer, outputs, initialization_seed = 0) -> None:

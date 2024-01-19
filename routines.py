@@ -33,7 +33,11 @@ def train(device,
     #reset generator of trainloader to achive same data_order during training
     dataloaderhelper.reset_trainloader_generator()
     dataloaderhelper.reset_valloader_generator()
-    
+    if dataloaderhelper.dataset_hparams.rngCrop is not None:
+        dataloaderhelper.dataset_hparams.rngCrop.reset_generator()
+    if dataloaderhelper.dataset_hparams.rngRandomHflip is not None:
+        dataloaderhelper.dataset_hparams.rngRandomHflip.reset_generator()
+
     all_stats = []
     iter = 0
     max_iter = dataloaderhelper.epochs_to_iter(training_hparams.num_epoch)
