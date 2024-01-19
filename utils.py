@@ -3,6 +3,7 @@ import torch
 import torchvision
 import numpy as np
 import torchvision.transforms.functional as TF
+import torchvision.transforms as transforms
 
 class TorchRandomSeed(object):
     """
@@ -28,7 +29,9 @@ class DataLoaderHelper():
         self.validationloader = None
         self.trainloader = None
         self.data_order_generator = None
-        self.data_split_generator = None 
+        self.data_split_generator = None
+        self.rngCrop = None
+        self.rngRandomHflip = None
         
     def split_train_val(self, trainset, val_set_size=5000):
         generator = torch.Generator()
@@ -96,6 +99,25 @@ class DataLoaderHelper():
     
     def epochs_to_iter(self, num_epochs):
          return num_epochs * len(self.trainloader)
+    
+    def get_transform(self, augmented):
+        if augmented:
+            rngCrop = RandomCropTransform(self.datasethparams.rngCrop_seed)
+            rngRandomHflip = RandomHflipTransform(self.datasethparams.rngRandomHflip_seed)
+            self.rngCrop = rngCrop
+            self.rngRandomHflip = rngRandomHflip
+            return transforms.Compose([
+                        self.rngCrop,
+                        self.rngRandomHflip,
+                        transforms.ToTensor(),
+                        transforms.Normalize(self.datasethparams.mean, self.datasethparams.std)
+                        ])
+        else:
+            return transforms.Compose([
+                        transforms.ToTensor(),
+                        transforms.Normalize(self.datasethparams.mean, self.datasethparams.std)
+                        ])
+
     
 class RandomHflipTransform(object):
 
