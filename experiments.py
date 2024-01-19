@@ -63,8 +63,6 @@ def e1_train_val_loss(name, description):
     #initialize network
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(
-        split_seed=dataloaderhelper.split_seed,
-        data_order_seed=dataloaderhelper.data_order_seed,
         patience = 10,
         min_delta = 10,
         num_epoch = 200,

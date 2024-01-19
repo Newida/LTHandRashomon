@@ -33,10 +33,10 @@ def train(device,
     #reset generator of trainloader to achive same data_order during training
     dataloaderhelper.reset_trainloader_generator()
     dataloaderhelper.reset_valloader_generator()
-    if dataloaderhelper.dataset_hparams.rngCrop is not None:
-        dataloaderhelper.dataset_hparams.rngCrop.reset_generator()
-    if dataloaderhelper.dataset_hparams.rngRandomHflip is not None:
-        dataloaderhelper.dataset_hparams.rngRandomHflip.reset_generator()
+    if dataloaderhelper.datasethparams.rngCrop is not None:
+        dataloaderhelper.datasethparams.rngCrop.reset_generator()
+    if dataloaderhelper.datasethparams.rngRandomHflip is not None:
+        dataloaderhelper.datasethparams.rngRandomHflip.reset_generator()
 
     all_stats = []
     iter = 0
