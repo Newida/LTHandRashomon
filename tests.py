@@ -88,8 +88,12 @@ if not data_path.exists():
     data_path.mkdir(parents=True)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+trainset = torchvision.datasets.CIFAR10(root=data_path, train=True,
+                                        download=True, transform=torchvision.transforms.ToTensor())
+print("Trainset mean:", trainset.data.mean(axis = (0,1,2))/255)
+print("Trainset std:", trainset.data.std(axis = (0,1,2))/255)
 mean = [0.4914, 0.4822, 0.4465]
-std = [0.2023, 0.1994, 0.2010]
+std = [0.247, 0.243, 0.261]
 transform = transforms.Compose(
     [transforms.RandomCrop(32, padding=4),
      transforms.RandomHorizontalFlip(),

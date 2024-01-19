@@ -1,6 +1,8 @@
+from typing import Any
 import torch
 import torchvision
 import numpy as np
+import torchvision.transforms.functional as TF
 
 class TorchRandomSeed(object):
     """
@@ -99,3 +101,36 @@ class DataLoaderHelper():
     
     def epochs_to_iter(self, num_epochs):
          return num_epochs * len(self.trainloader)
+    
+class RandomHflipTransform(object):
+
+    def __init__(self, data_augmentation_seed) -> None:
+        self.data_augmentation_seed = data_augmentation_seed
+        self.generator = torch.Generator()
+        self.generator.manual_seed(self.data_augmentation_seed)
+
+    def __call__(self, image) -> Any:
+        if torch.rand(1, generator=self.generator).item() < 0.5:
+            TF.hflip(image)
+        
+    def reset_generator(self):
+        self.generator.manual_seed(self.data_augmentation_seed)
+
+class RandomCropTransform(object):
+
+    def __init__(self, data_augmentation_seed) -> None:
+        self.data_augmentation_seed = data_augmentation_seed
+        self.generator = torch.Generator()
+        self.generator.manual_seed(self.data_augmentation_seed)
+        self.size = 32
+        self.padding = 4
+
+    def __call__(self, image):
+        image = TF.pad(image, self.padding, fill=0)
+        _, h, w = TF.get_dimensions(image)
+        i = torch.randint(0, h - 32 + 1, generator=self.generator, size=(1,)).item()
+        j = torch.randint(0, w - 32 + 1, generator=self.generator, size=(1,)).item()
+        return TF.crop(image, i, j, h, w)
+
+    def reset_generator(self):
+        self.generator.manual_seed(self.data_augmentation_seed)

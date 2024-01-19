@@ -37,7 +37,7 @@ with utils.TorchRandomSeed(random_state):
         [#transforms.RandomCrop(32, padding=4),
         #transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize(mean, std)
+        #transforms.Normalize(mean, std)
         ])
 
     dataset_hparams = Hparams.DatasetHparams()
@@ -66,7 +66,7 @@ def e1_train_val_loss(name, description):
         min_delta = 4,
         num_epoch = 200,
         gamma = 0.01,
-        milestone_steps = [100, 150])
+        milestone_steps = [120, 150])
     pruning_hparams = Hparams.PruningHparams()
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
@@ -211,17 +211,17 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
     return 
 
 start = time.time()
-stats = e2_rewind_iteration("e2_1", "rewind = 800, initialization_seed = 0, data_order_seed = 0", 800, 0)
+stats = e2_rewind_iteration("e2_3", "rewind = 0, initialization_seed = 0, data_order_seed = 0", 0, 0)
 end = time.time()
 print("Time of Experiment 2:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_7")
+models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e2_3")
 for L, model in enumerate(models[1:]):
     model.to(device)
     print("Pruning depth: " + str(L))
     print("Density: ", Resnet_N_W.calculate_density(model))
     print("Test_acc: ", routines.get_accuracy(device, model, testloader))
     print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
-     
+  
 def test_linear_mode_connectivity(name, step_size = 0.1):
     workdir = Path.cwd()
     
@@ -259,7 +259,7 @@ def test_linear_mode_connectivity(name, step_size = 0.1):
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
 start = time.time()
-test_linear_mode_connectivity("e2_1", 0.1)
+test_linear_mode_connectivity("e2_3", 0.1)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
 
