@@ -111,7 +111,7 @@ def imp(device,
     #create copy of initial network and save it:
     models.append(model.copy())
 
-    dataloaderhelper.reset_testoader_generator()
+    dataloaderhelper.reset_testloader_generator()
     test_loss = get_loss(device, model, dataloaderhelper.testloader, loss_criterion)
     print('|' + str(-1) + '| test_loss: ' + str(test_loss))
         
@@ -136,7 +136,7 @@ def imp(device,
             rewind_point = rewind_model
         
         #test if early stop
-        dataloaderhelper.reset_testoader_generator()
+        dataloaderhelper.reset_testloader_generator()
         test_loss = get_loss(device, best_model, dataloaderhelper.testloader, loss_criterion)
         print('|' + str(L) + '| test_loss: ' + str(test_loss))
         all_stats.append([-1, {"test_loss" : test_loss}])
@@ -159,6 +159,84 @@ def imp(device,
         best_model.rewind(rewind_point)
 
     return models, all_model_stats, best_model
+
+def imp2(device,
+        model,
+        early_stopper, pruning_stopper,
+        training_hparams, pruning_hparams,
+        dataset_hparams,
+        train_order_until_rewind,
+        dataloaderhelper):
+    loss_criterion = Hparams.get_loss_criterion(training_hparams)
+    max_pruning_level = pruning_hparams.max_pruning_level
+    rewind_iter = pruning_hparams.rewind_iter
+    models = []
+    all_model_stats = []
+    #create copy of initial network and save it:
+    models.append(model.copy())
+
+    dataloaderhelper.reset_testloader_generator()
+    test_loss = get_loss(device, model, dataloaderhelper.testloader, loss_criterion)
+    print('|' + str(-1) + '| test_loss: ' + str(test_loss))
+        
+    all_model_stats.append([[-1, {"test_loss": test_loss}]]) #initial model doesnt need stats calculated
+    dataset_hparams2 = Hparams.DatasetHparams(
+        test_seed=dataset_hparams.test_seed,
+        val_seed=dataset_hparams.val_seed,
+        train_seed=train_order_until_rewind,
+        split_seed=dataset_hparams.split_seed
+    )
+    dataloaderhelper2 = utils.DataLoaderHelper(dataset_hparams2)
+    training_hparams2 = Hparams.TrainingHparams(num_epoch = rewind_iter+1)
+    early_stopper2 = EarlyStopper(model_hparams=model.model_hparams, patience=np.inf, min_delta=np.inf)
+    rewind_point, all_stats, best_model = train(
+        device=device,
+        model=model,
+        rewind_iter=rewind_iter,
+        dataloaderhelper=dataloaderhelper2,
+        training_hparams=training_hparams2,
+        early_stopper=early_stopper2
+    )
+    best_model = rewind_point
+    for L in range(0, max_pruning_level):
+        #do training
+        _, all_stats, best_model = train(
+            device,
+            best_model, rewind_iter,
+            dataloaderhelper, training_hparams,
+            early_stopper,
+            False
+        )
+        print("Density: ", Resnet_N_W.calculate_density(best_model))
+        #create copy of found network and save it:
+        models.append(best_model.copy())
+
+        early_stopper.reset()
+        #test if early stop
+        dataloaderhelper.reset_testloader_generator()
+        test_loss = get_loss(device, best_model, dataloaderhelper.testloader, loss_criterion)
+        print('|' + str(L) + '| test_loss: ' + str(test_loss))
+        all_stats.append([-1, {"test_loss" : test_loss}])
+        #save statistics calculated during training
+        all_model_stats.append(all_stats)
+        
+        if pruning_stopper(best_model, test_loss):
+            print("Pruning: Stopped early")
+            print("Trained for " + str(L) + " Pruning-Iterations.")
+            print("Got minimum test loss in early stopper: ", pruning_stopper.min_val_loss)
+            return models, all_model_stats, pruning_stopper.best_model
+
+        #pruning
+        best_model.prune(
+            prune_ratio = pruning_hparams.pruning_ratio,
+            method = pruning_hparams.pruning_method
+        )
+        
+        #rewind model
+        best_model.rewind(rewind_point)
+
+    return models, all_model_stats, best_model
+
 
 def get_loss(device, model, dataloader, loss_criterion):
     with torch.no_grad():
@@ -358,7 +436,7 @@ def linear_mode_connected(device, model1, model2, dataloaderhelper, step_size = 
             list_convex_network = Resnet_N_W.get_list_of_all_modules(convex_network)
             for conv, m1, m2 in zip(list_convex_network, list_model1, list_model2):
                 convex_weigths(conv, m1, m2, beta)
-            dataloaderhelper.reset_testoader_generator()
+            dataloaderhelper.reset_testloader_generator()
             errors.append(1 - get_accuracy(device, convex_network, testloader))
             
         return errors

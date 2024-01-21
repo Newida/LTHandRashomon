@@ -83,7 +83,7 @@ class DataLoaderHelper():
     def reset_valloader_generator(self):
         self.validationloader.generator.manual_seed(self.datasethparams.val_seed)
 
-    def reset_testoader_generator(self):
+    def reset_testloader_generator(self):
         self.testloader.generator.manual_seed(self.datasethparams.test_seed)
 
     def reset_trainloader_generator(self):

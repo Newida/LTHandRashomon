@@ -30,7 +30,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dataset_hparams = Hparams.DatasetHparams(
     test_seed=0,
     val_seed=0,
-    train_seed=0,
+    train_seed=42,
     split_seed=0,
     rngCrop_seed=0,
     rngRandomHflip_seed=0,
@@ -201,19 +201,27 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
     #test value of untrained network makes graph harder to see
     plt.savefig(saving_experiments_path / "test_loss.png")
     return 
-
+"""
 start = time.time()
-stats = e2_rewind_iteration("e3_1", "rewind = 0, initialization_seed = 0, data_order_seed = 0, with dataaugmentation", 0, 0)
+description = "rewind = 2000, initialization_seed = 0, data_order_seed = 42, with dataaugmentation"
+print(description)
+stats = e2_rewind_iteration(
+    name="e4_2", 
+    description=description,
+    rewind_iter=2000,
+    init_seed=0
+)
 end = time.time()
 print("Time of Experiment 2:", end - start)
-models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e3_1")
+"""
+"""models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e3_7")
 for L, model in enumerate(models[1:]):
     model.to(device)
     print("Pruning depth: " + str(L))
     print("Density: ", Resnet_N_W.calculate_density(model))
     print("Test_acc: ", routines.get_accuracy(device, model, testloader))
     print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
-  
+  """
 
 def test_linear_mode_connectivity(name, step_size = 0.1):
     workdir = Path.cwd()
@@ -252,14 +260,13 @@ def test_linear_mode_connectivity(name, step_size = 0.1):
     plt.plot(x, all_errors)
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
-start = time.time()
-test_linear_mode_connectivity("e3_1", 0.1)
+"""start = time.time()
+test_linear_mode_connectivity("e4_2", 0.1)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
+"""
 
-
-def compare_winning_tickets(name1, name2, step_size = 0.1):
-    #TODO: change this function as discussed in meeting
+def compare_winning_tickets(name1, name2, L, step_size = 0.1):
     workdir = Path.cwd()
     
     experiments_path = workdir / "experiments"
@@ -275,11 +282,11 @@ def compare_winning_tickets(name1, name2, step_size = 0.1):
         raise ValueError("Exerpiment does not exists.")
 
     models1, all_stats1, _1, _2, _3, _4 = routines.load_experiment(saving_experiments_path1)
-    winner1 = routines.find_winning_ticket(models1, all_stats1)
+    winner1 = models1[L+1] 
 
     models2, all_stats2, _1, _2, _3, _4 = routines.load_experiment(saving_experiments_path2)
-    winner2 = routines.find_winning_ticket(models2, all_stats2)
-
+    winner2 = models2[L+1]
+    
     errors = routines.linear_mode_connected(
             device,
             winner1, winner2,
@@ -289,6 +296,10 @@ def compare_winning_tickets(name1, name2, step_size = 0.1):
     x = np.linspace(0, 1, int(1/step_size)+1)
     plt.clf()
     plt.plot(x, errors)
-    plt.savefig(experiments_path / ("linear_mode_connectivity" + name1 + "_" + name2 + ".png"))
+    plt.savefig(experiments_path / ("linear_mode_connectivity-" + name1 + "-" +
+                                     name2 + "-" + str(L) + ".png"))
     
-#compare_winning_tickets("e2_4", "e2_6")
+start = time.time()
+compare_winning_tickets("e4_1", "e3_5", 2)
+end = time.time()
+print("Time of linear mode connectivity:", end - start)
