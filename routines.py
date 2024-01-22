@@ -187,6 +187,9 @@ def imp2(device,
         split_seed=dataset_hparams.split_seed
     )
     dataloaderhelper2 = utils.DataLoaderHelper(dataset_hparams2)
+    dataloaderhelper2.trainloader = dataloaderhelper.trainloader
+    dataloaderhelper2.testloader = dataloaderhelper.testloader
+    dataloaderhelper2.validationloader = dataloaderhelper.validationloader
     training_hparams2 = Hparams.TrainingHparams(num_epoch = rewind_iter+1)
     early_stopper2 = EarlyStopper(model_hparams=model.model_hparams, patience=np.inf, min_delta=np.inf)
     rewind_point, all_stats, best_model = train(
