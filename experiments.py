@@ -143,7 +143,7 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
         pruning_stopper_min_delta = 4,
         max_pruning_level = 15,
         rewind_iter = rewind_iter,
-        pruning_ratio = 0.2
+        pruning_ratio = 0.1
     )
     model_structure, initializer, outputs = Resnet_N_W.get_model_from_name("resnet-20")
     model_hparams = Hparams.ModelHparams(
@@ -162,12 +162,14 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
         patience=pruning_hparams.pruning_stopper_patience,
         min_delta=pruning_hparams.pruning_stopper_min_delta
     )
-    models, all_model_stats, best_model = routines.imp(
+    models, all_model_stats, best_model = routines.imp2(
         device,
         model,
         early_stopper, pruning_stopper,
         training_hparams, pruning_hparams,
-        dataloaderhelper
+        dataset_hparams=dataset_hparams,
+        train_order_until_rewind=0,
+        dataloaderhelper=dataloaderhelper
     )
     #4. Save model and statistics
     routines.save_experiment(
@@ -201,12 +203,13 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
     #test value of untrained network makes graph harder to see
     plt.savefig(saving_experiments_path / "test_loss.png")
     return 
+
 """
 start = time.time()
-description = "rewind = 2000, initialization_seed = 0, data_order_seed = 42, with dataaugmentation"
+description = "rewind = 2000, initialization_seed = 0, unitl_rewind_seed = 0, training_seed = 42, with dataaugmentation, pruning_ratio = 0.1"
 print(description)
 stats = e2_rewind_iteration(
-    name="e4_2", 
+    name="e6_2", 
     description=description,
     rewind_iter=2000,
     init_seed=0
@@ -257,11 +260,13 @@ def test_linear_mode_connectivity(name, step_size = 0.1):
     x = np.linspace(0, length, int(length/step_size)+1)
     plt.clf()
     plt.xticks(np.arange(0, length+1, 1.0))
+    plt.xlabel("Iteration L")
+    plt.ylabel("Test Error")
     plt.plot(x, all_errors)
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
     
 """start = time.time()
-test_linear_mode_connectivity("e4_2", 0.1)
+test_linear_mode_connectivity("e3_5", 0.1)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
 """
@@ -295,11 +300,14 @@ def compare_winning_tickets(name1, name2, L, step_size = 0.1):
     
     x = np.linspace(0, 1, int(1/step_size)+1)
     plt.clf()
+    plt.xlabel("Interpolation points")
+    plt.ylabel("Test Error")
     plt.plot(x, errors)
     plt.savefig(experiments_path / ("linear_mode_connectivity-" + name1 + "-" +
                                      name2 + "-" + str(L) + ".png"))
     
 start = time.time()
-compare_winning_tickets("e4_1", "e3_5", 2)
+for i in range(2, 11):
+    compare_winning_tickets("e6_1", "e6_2", i)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
