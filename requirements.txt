@@ -18,7 +18,7 @@ blinker==1.7.0
 Brlapi==0.7.0
 Brotli==1.1.0
 cachetools==4.2.0
-captum==0.5.0
+captum==0.8.0
 certifi==2023.7.22
 cffi==1.16.0
 chardet==3.0.4
