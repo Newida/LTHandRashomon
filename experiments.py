@@ -12,6 +12,8 @@ from Hparams import Hparams
 from utils_Earlystopper import EarlyStopper
 import utils
 import routines
+from captum.attr import IntegratedGradients, Saliency, DeepLift, NoiseTunnel
+import torch.nn.functional as F
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -128,7 +130,7 @@ print("Test_acc: ", routines.get_accuracy(device, model, testloader))
 print("Train_acc: ",routines.get_accuracy(device, model, trainloader))
 """
 
-def e2_rewind_iteration(name, description, rewind_iter, init_seed):
+def e2_rewind_iteration(name, description, rewind_iter, init_seed, train_order_until_rewind):
     #initialize network
     #1. Setup hyperparameters
     training_hparams = Hparams.TrainingHparams(
@@ -168,7 +170,7 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
         early_stopper, pruning_stopper,
         training_hparams, pruning_hparams,
         dataset_hparams=dataset_hparams,
-        train_order_until_rewind=0,
+        train_order_until_rewind=train_order_until_rewind,
         dataloaderhelper=dataloaderhelper
     )
     #4. Save model and statistics
@@ -206,17 +208,19 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed):
 
 """
 start = time.time()
-description = "rewind = 2000, initialization_seed = 0, unitl_rewind_seed = 0, training_seed = 42, with dataaugmentation, pruning_ratio = 0.1"
+description = "rewind = 2000, initialization_seed = 123, until_rewind_seed = 0, training_seed = 42, with dataaugmentation, pruning_ratio = 0.1"
 print(description)
 stats = e2_rewind_iteration(
-    name="e6_2", 
+    name="e8_2", 
     description=description,
     rewind_iter=2000,
-    init_seed=0
+    init_seed=123,
+    train_order_until_rewind=0
 )
 end = time.time()
 print("Time of Experiment 2:", end - start)
 """
+
 """models, all_stats, _1, _2, _3, _4 = routines.load_experiment("e3_7")
 for L, model in enumerate(models[1:]):
     model.to(device)
@@ -264,12 +268,12 @@ def test_linear_mode_connectivity(name, step_size = 0.1):
     plt.ylabel("Test Error")
     plt.plot(x, all_errors)
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
-    
-"""start = time.time()
-test_linear_mode_connectivity("e3_5", 0.1)
+"""
+start = time.time()
+test_linear_mode_connectivity("e7_3", 0.1)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
-"""
+"""    
 
 def compare_winning_tickets(name1, name2, L, step_size = 0.1):
     workdir = Path.cwd()
@@ -305,9 +309,76 @@ def compare_winning_tickets(name1, name2, L, step_size = 0.1):
     plt.plot(x, errors)
     plt.savefig(experiments_path / ("linear_mode_connectivity-" + name1 + "-" +
                                      name2 + "-" + str(L) + ".png"))
-    
+"""
 start = time.time()
 for i in range(2, 11):
-    compare_winning_tickets("e6_1", "e6_2", i)
+    compare_winning_tickets("e7_1", "e7_2", i)
+    compare_winning_tickets("e7_1", "e7_3", i)
+    compare_winning_tickets("e7_2", "e7_3", i)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
+"""
+
+def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method, noise_tunnel):
+    #prepare models
+    model1.eval()
+    model2.eval()
+    model1.remove_pruning()
+    model2.remove_pruning()
+    
+    dissimilarity = 0
+    classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    pairwise_euclid_dist = torch.nn.PairwiseDistance(p=2.0)
+
+    if attribution_method == "grad":
+        attr_algo1 = Saliency(model1)
+        attr_algo2 = Saliency(model2)
+        kwargs = {"abs": False}
+        if noise_tunnel == True:
+            attr_algo1 = NoiseTunnel(attr_algo1)
+            attr_algo2 = NoiseTunnel(attr_algo2)
+
+    elif attribution_method == "ig":
+        attr_algo1 = IntegratedGradients(model1)
+        attr_algo2 = IntegratedGradients(model2)
+        #can specify baseline here but default is alread 0 so not necessary
+        kwargs = {"n_steps": 100, "return_convergence_delta": True}
+        if noise_tunnel == True:
+            print("Cannot calculate smoothgrad for ig, since it takes to much memory")
+            print("Ig without smoothgrad is performed.")
+    
+    else:
+        print("Attribution method not known. Choose either ig or grad.")
+        return
+    
+    for data in dataloader:
+        inputs, labels = data
+    inputs = inputs.to(device)
+    inputs.requires_grad = True
+    labels = labels.to(device)
+    #calculate attribution for first model
+    outputs1 = model1(inputs)
+    labels1 = F.softmax(outputs1, dim=1)
+    prediction_score, pred_labels_idx1 = torch.topk(labels1, 1)
+    pred_labels_idx1.squeeze_()
+    attributions1 = attr_algo1.attribute(inputs, target=pred_labels_idx1, **kwargs)
+    #calculate attribution for second model
+    outputs2 = model2(inputs)
+    labels2 = F.softmax(outputs2, dim=1)
+    prediction_score, pred_labels_idx2 = torch.topk(labels2, 1)
+    pred_labels_idx2.squeeze_()
+    attributions2 = attr_algo2.attribute(inputs, target=pred_labels_idx2, **kwargs)
+    
+    #calculate pairwise distances
+    #set negative gradients to 0
+    attributions1[attributions1 < 0] = 0
+    attributions2[attributions2 < 0] = 0
+    #set samples with different predictions to 0 to not count them
+    prediction_diff = pred_labels_idx1 - pred_labels_idx2
+    attributions1[prediction_diff != 0] = 0
+    attributions2[prediction_diff != 0] = 0
+    #calculate pairwise euclidian distances
+    distances = pairwise_euclid_dist(attributions1, attributions2)
+    dissimilarity += torch.sum(distances)
+
+    return dissimilarity
