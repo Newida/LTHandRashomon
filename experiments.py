@@ -327,6 +327,7 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
     model2.remove_pruning()
     
     dissimilarity = 0
+    normalization = 0
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
     pairwise_euclid_dist = torch.nn.PairwiseDistance(p=2.0)
 
@@ -353,32 +354,35 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
     
     for data in dataloader:
         inputs, labels = data
-    inputs = inputs.to(device)
-    inputs.requires_grad = True
-    labels = labels.to(device)
-    #calculate attribution for first model
-    outputs1 = model1(inputs)
-    labels1 = F.softmax(outputs1, dim=1)
-    prediction_score, pred_labels_idx1 = torch.topk(labels1, 1)
-    pred_labels_idx1.squeeze_()
-    attributions1 = attr_algo1.attribute(inputs, target=pred_labels_idx1, **kwargs)
-    #calculate attribution for second model
-    outputs2 = model2(inputs)
-    labels2 = F.softmax(outputs2, dim=1)
-    prediction_score, pred_labels_idx2 = torch.topk(labels2, 1)
-    pred_labels_idx2.squeeze_()
-    attributions2 = attr_algo2.attribute(inputs, target=pred_labels_idx2, **kwargs)
-    
-    #calculate pairwise distances
-    #set negative gradients to 0
-    attributions1[attributions1 < 0] = 0
-    attributions2[attributions2 < 0] = 0
-    #set samples with different predictions to 0 to not count them
-    prediction_diff = pred_labels_idx1 - pred_labels_idx2
-    attributions1[prediction_diff != 0] = 0
-    attributions2[prediction_diff != 0] = 0
-    #calculate pairwise euclidian distances
-    distances = pairwise_euclid_dist(attributions1, attributions2)
-    dissimilarity += torch.sum(distances)
+        inputs = inputs.to(device)
+        inputs.requires_grad = True
+        labels = labels.to(device)
+        #calculate attribution for first model
+        outputs1 = model1(inputs)
+        labels1 = F.softmax(outputs1, dim=1)
+        prediction_score, pred_labels_idx1 = torch.topk(labels1, 1)
+        pred_labels_idx1.squeeze_()
+        attributions1 = attr_algo1.attribute(inputs, target=pred_labels_idx1, **kwargs)
+        #calculate attribution for second model
+        outputs2 = model2(inputs)
+        labels2 = F.softmax(outputs2, dim=1)
+        prediction_score, pred_labels_idx2 = torch.topk(labels2, 1)
+        pred_labels_idx2.squeeze_()
+        attributions2 = attr_algo2.attribute(inputs, target=pred_labels_idx2, **kwargs)
 
-    return dissimilarity
+        #calculate pairwise distances
+        #set negative gradients to 0
+        attributions1[attributions1 < 0] = 0
+        attributions2[attributions2 < 0] = 0
+        #set samples with different predictions to 0 to not count them
+        prediction_diff = pred_labels_idx1 - pred_labels_idx2
+        attributions1[prediction_diff != 0] = 0
+        attributions2[prediction_diff != 0] = 0
+        #calculate pairwise euclidian distances
+        distances = pairwise_euclid_dist(attributions1, attributions2)
+        dissimilarity += torch.sum(distances)
+        normalization = dataloader.batch_size - torch.sum(prediction_diff != 0).item()
+
+    dissimilarity/normalization
+
+    return dissimilarity, normalization
