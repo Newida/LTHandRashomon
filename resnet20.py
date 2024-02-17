@@ -223,13 +223,16 @@ class Resnet_N_W(nn.Module):
         list_all_modules = Resnet_N_W.get_list_of_all_modules(self)
         for module in list_all_modules:
             if isinstance(module, torch.nn.Linear):
-                torch.nn.utils.prune.remove(module, 'weight')
-                torch.nn.utils.prune.remove(module, 'bias')
+                if "weight_orig" in [name for name, _ in module.named_parameters()]:
+                    torch.nn.utils.prune.remove(module, 'weight')
+                    torch.nn.utils.prune.remove(module, 'bias')
             elif isinstance(module, torch.nn.BatchNorm2d):
-                torch.nn.utils.prune.remove(module, 'weight')
-                torch.nn.utils.prune.remove(module, 'bias')
+                if "weight_orig" in [name for name, _ in module.named_parameters()]:
+                    torch.nn.utils.prune.remove(module, 'weight')
+                    torch.nn.utils.prune.remove(module, 'bias')
             else:
-                torch.nn.utils.prune.remove(module, 'weight')
+                if "weight_orig" in [name for name, _ in module.named_parameters()]:
+                    torch.nn.utils.prune.remove(module, 'weight')
 
     def copy(self):
         with tempfile.NamedTemporaryFile() as tmp:

@@ -32,7 +32,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 dataset_hparams = Hparams.DatasetHparams(
     test_seed=0,
     val_seed=0,
-    train_seed=42,
+    train_seed=420,
     split_seed=0,
     rngCrop_seed=0,
     rngRandomHflip_seed=0,
@@ -208,10 +208,10 @@ def e2_rewind_iteration(name, description, rewind_iter, init_seed, train_order_u
 
 """
 start = time.time()
-description = "rewind = 2000, initialization_seed = 123, until_rewind_seed = 0, training_seed = 42, with dataaugmentation, pruning_ratio = 0.1"
+description = "rewind = 2000, initialization_seed = 123, until_rewind_seed = 0, training_seed = 420, with dataaugmentation, pruning_ratio = 0.1"
 print(description)
 stats = e2_rewind_iteration(
-    name="e8_2", 
+    name="e8_4", 
     description=description,
     rewind_iter=2000,
     init_seed=123,
@@ -268,12 +268,12 @@ def test_linear_mode_connectivity(name, step_size = 0.1):
     plt.ylabel("Test Error")
     plt.plot(x, all_errors)
     plt.savefig(saving_experiments_path / "linear_mode_connectivity.png")
-"""
-start = time.time()
-test_linear_mode_connectivity("e7_3", 0.1)
+
+"""start = time.time()
+test_linear_mode_connectivity("e8_4", 0.1)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
-"""    
+"""
 
 def compare_winning_tickets(name1, name2, L, step_size = 0.1):
     workdir = Path.cwd()
@@ -311,15 +311,15 @@ def compare_winning_tickets(name1, name2, L, step_size = 0.1):
                                      name2 + "-" + str(L) + ".png"))
 """
 start = time.time()
-for i in range(2, 11):
-    compare_winning_tickets("e7_1", "e7_2", i)
-    compare_winning_tickets("e7_1", "e7_3", i)
-    compare_winning_tickets("e7_2", "e7_3", i)
+for i in [6,8]:
+    compare_winning_tickets("e8_1", "e8_2", i)
+    compare_winning_tickets("e8_1", "e8_3", i)
+    compare_winning_tickets("e8_2", "e8_3", i)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
 """
 
-def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method, noise_tunnel):
+def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method, noise_tunnel, mode):
     #prepare models
     model1.eval()
     model2.eval()
@@ -338,15 +338,27 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
         if noise_tunnel == True:
             attr_algo1 = NoiseTunnel(attr_algo1)
             attr_algo2 = NoiseTunnel(attr_algo2)
+            kwargs = {"abs": False, "nt_type": 'smoothgrad', "nt_samples": 20, "stdevs": 0.2}
 
     elif attribution_method == "ig":
         attr_algo1 = IntegratedGradients(model1)
         attr_algo2 = IntegratedGradients(model2)
         #can specify baseline here but default is alread 0 so not necessary
-        kwargs = {"n_steps": 100, "return_convergence_delta": True}
+        kwargs = {"n_steps": 100, "return_convergence_delta": False}
         if noise_tunnel == True:
             print("Cannot calculate smoothgrad for ig, since it takes to much memory")
             print("Ig without smoothgrad is performed.")
+        
+        #create new dataloader with smaller batch_size to avoid out of memory error
+        generator = torch.Generator()
+        generator.manual_seed(dataloader.generator.initial_seed())
+        dataloader = torch.utils.data.DataLoader(
+            dataloader.dataset,
+            batch_size=20,
+            shuffle=False,
+            num_workers=1,
+            generator = generator
+        )
     
     else:
         print("Attribution method not known. Choose either ig or grad.")
@@ -362,6 +374,7 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
         labels1 = F.softmax(outputs1, dim=1)
         prediction_score, pred_labels_idx1 = torch.topk(labels1, 1)
         pred_labels_idx1.squeeze_()
+        torch.cuda.empty_cache()
         attributions1 = attr_algo1.attribute(inputs, target=pred_labels_idx1, **kwargs)
         #calculate attribution for second model
         outputs2 = model2(inputs)
@@ -371,9 +384,14 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
         attributions2 = attr_algo2.attribute(inputs, target=pred_labels_idx2, **kwargs)
 
         #calculate pairwise distances
-        #set negative gradients to 0
-        attributions1[attributions1 < 0] = 0
-        attributions2[attributions2 < 0] = 0
+        if mode == "positive":
+            #set negative gradients to 0
+            attributions1[attributions1 < 0] = 0
+            attributions2[attributions2 < 0] = 0
+        elif mode == "abs":
+            #take the absolute values of attributions
+            attributions1 = torch.abs(attributions1)
+            attributions2 = torch.abs(attributions2)
         #set samples with different predictions to 0 to not count them
         prediction_diff = pred_labels_idx1 - pred_labels_idx2
         attributions1[prediction_diff != 0] = 0
@@ -386,3 +404,49 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
     dissimilarity/normalization
 
     return dissimilarity, normalization
+
+def within_group(mode, name, iteration):
+    #load models to compare
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    winners = list()
+    winner_names = list()
+    for p in experiments_path.iterdir():
+        if p.match(name + "_*"):
+            models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
+            winners.append(models[iteration])
+            winner_names.append(p.name[-1])
+
+    #reset testloader
+    dataloaderhelper.reset_testloader_generator()
+
+    #calculate pairwise comparison
+    save_dict = dict()
+
+    for method, nt in [("grad", False), ("grad", True), ("ig", False)]:
+        method = "ig"
+        nt = False
+        save_dict[method] = dict()
+        for (i,j), (f_i,  f_j) in zip(itertools.combinations(winner_names, 2),
+                                    itertools.combinations(winners, 2)):
+            dataloaderhelper.reset_testloader_generator()
+            d = calculate_model_dissimilarity(
+                model1=f_i,
+                model2=f_j,
+                dataloader=testloader,
+                attribution_method=method,
+                noise_tunnel=nt,
+                mode=mode
+            )
+            save_dict[method][(i + "-" + j)] = d
+
+    return save_dict
+
+
+start = time.time()
+within_group("positive", "e6", 8)
+end = time.time()
+print("Time of comparison:", end - start)
