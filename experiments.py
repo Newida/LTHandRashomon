@@ -399,13 +399,13 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
         #calculate pairwise euclidian distances
         distances = pairwise_euclid_dist(attributions1, attributions2)
         dissimilarity += torch.sum(distances)
-        normalization = dataloader.batch_size - torch.sum(prediction_diff != 0).item()
+        normalization += dataloader.batch_size - torch.sum(prediction_diff != 0).item()
 
     dissimilarity/normalization
 
     return dissimilarity, normalization
 
-def within_group(mode, name, iteration):
+def within_group(mode, name, iteration, save = True):
     #load models to compare
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"
@@ -427,13 +427,14 @@ def within_group(mode, name, iteration):
     save_dict = dict()
 
     for method, nt in [("grad", False), ("grad", True), ("ig", False)]:
-        method = "ig"
-        nt = False
+        print("Method:", method)
+        print("NT:", nt)
+        print("-"*10)
         save_dict[method] = dict()
         for (i,j), (f_i,  f_j) in zip(itertools.combinations(winner_names, 2),
                                     itertools.combinations(winners, 2)):
             dataloaderhelper.reset_testloader_generator()
-            d = calculate_model_dissimilarity(
+            d, _ = calculate_model_dissimilarity(
                 model1=f_i,
                 model2=f_j,
                 dataloader=testloader,
@@ -441,12 +442,100 @@ def within_group(mode, name, iteration):
                 noise_tunnel=nt,
                 mode=mode
             )
-            save_dict[method][(i + "-" + j)] = d
+            save_dict[method][(i + "-" + j)] = d.item()
+
+    if save == True:
+        with open(experiments_path / (name + "_distances.pkl"), 'wb') as f:
+            pickle.dump(save_dict, f)
 
     return save_dict
 
 
 start = time.time()
-within_group("positive", "e6", 8)
+save_dict = within_group("positive", "e6", 8)
+end = time.time()
+print("Time of comparison:", end - start)
+
+
+def calculate_model_dissimilarity_lossbased(model1, model2, dataloader):
+    #prepare models
+    model1.eval()
+    model2.eval()
+    model1.remove_pruning()
+    model2.remove_pruning()
+
+    loss_criterion = Hparams.get_loss_criterion("crossentropy")
+    
+    dissimilarity = 0
+    normalization = 0
+
+    for data in dataloader:
+        torch.cuda.empty_cache()
+        inputs, labels = data
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+        #calculate attribution for first model
+        outputs1 = model1(inputs)
+        labels1 = F.softmax(outputs1, dim=1)
+        prediction_score, pred_labels_idx1 = torch.topk(labels1, 1)
+        pred_labels_idx1.squeeze_()
+        loss1 = loss_criterion(outputs1, labels1)
+        #calculate attribution for second model
+        outputs2 = model2(inputs)
+        labels2 = F.softmax(outputs2, dim=1)
+        prediction_score, pred_labels_idx2 = torch.topk(labels2, 1)
+        pred_labels_idx2.squeeze_()
+        loss2 = loss_criterion(outputs2, labels2)
+
+        #set samples with same predictions to 0 to not count them
+        prediction_diff = pred_labels_idx1 - pred_labels_idx2
+        loss1[prediction_diff == 0] = 0
+        loss2[prediction_diff == 0] = 0
+        dissimilarity += torch.sum(torch.abs(loss1 - loss2))
+        normalization += dataloader.batch_size - torch.sum(prediction_diff == 0).item()
+    
+    return dissimilarity, normalization
+
+def within_group_lossbased(name, iteration, save = True):
+    #load models to compare
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    winners = list()
+    winner_names = list()
+    for p in experiments_path.iterdir():
+        if p.match(name + "_*"):
+            models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
+            winners.append(models[iteration])
+            winner_names.append(p.name[-1])
+
+    #reset testloader
+    dataloaderhelper.reset_testloader_generator()
+
+    #calculate pairwise comparison
+    save_dict = dict()
+    save_dict["l2_loss"] = dict()
+    save_dict["classification"] = dict()
+
+    for (i,j), (f_i,  f_j) in zip(itertools.combinations(winner_names, 2),
+                                itertools.combinations(winners, 2)):
+        dataloaderhelper.reset_testloader_generator()
+        l2_loss_difference, classification_difference = calculate_model_dissimilarity_lossbased(
+            model1=f_i,
+            model2=f_j,
+            dataloader=testloader
+        )
+        save_dict["l2_loss"][(i + "-" + j)] = l2_loss_difference.item()
+        save_dict["classification"][(i + "-" + j)] = classification_difference.item()
+
+    if save == True:
+        with open(experiments_path / (name + "_distances_lossbased.pkl"), 'wb') as f:
+            pickle.dump(save_dict, f)
+    return save_dict
+
+start = time.time()
+save_dict = within_group_lossbased("e6", 8)
 end = time.time()
 print("Time of comparison:", end - start)
