@@ -15,6 +15,7 @@ import routines
 from captum.attr import IntegratedGradients, Saliency, DeepLift, NoiseTunnel
 import torch.nn.functional as F
 import re
+import networkx as nx
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -399,7 +400,7 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
         attributions2[prediction_diff != 0] = 0
         #calculate pairwise euclidian distances
         distances = pairwise_euclid_dist(attributions1, attributions2)
-        dissimilarity += torch.sum(distances)
+        dissimilarity += torch.sum(distances).item()
         normalization += dataloader.batch_size - torch.sum(prediction_diff != 0).item()
 
     dissimilarity/normalization
@@ -419,7 +420,7 @@ def within_group(mode, name, iteration, save = True):
     for p in experiments_path.iterdir():
         if pattern.match(p.name):
             models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
-            winners.append(models[iteration])
+            winners.append(models[iteration + 1])
             winner_names.append(p.name[-1])
 
     #reset testloader
@@ -445,19 +446,20 @@ def within_group(mode, name, iteration, save = True):
                 noise_tunnel=nt,
                 mode=mode
             )
-            save_dict[method][(i + "-" + j)] = d.item()
+            save_dict[method][(i + "-" + j)] = d
 
     if save == True:
         with open(experiments_path / (name + "_" + mode +  "_distances.pkl"), 'wb') as f:
             pickle.dump(save_dict, f)
 
     return save_dict
-"""
+
+
 start = time.time()
-save_dict = within_group("positive", "e6", 8)
+save_dict = within_group("positive", "e8", 8)
 end = time.time()
 print("Time of comparison:", end - start)
-"""
+
 
 def calculate_model_dissimilarity_lossbased(model1, model2, dataloader):
     #this code is untested and creates a out of memory
@@ -515,7 +517,7 @@ def within_group_lossbased(name, iteration, save = True):
     for p in experiments_path.iterdir():
         if pattern.match(p.name):
             models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
-            winners.append(models[iteration])
+            winners.append(models[iteration + 1])
             winner_names.append(p.name[-1])
 
     #reset testloader
@@ -542,21 +544,146 @@ def within_group_lossbased(name, iteration, save = True):
             pickle.dump(save_dict, f)
     return save_dict
 
+"""
 start = time.time()
 save_dict = within_group_lossbased("e8", 8)
 end = time.time()
 print("Time of comparison:", end - start)
+"""
 
-
-def visualize_distances(list_of_dicts):
+def visualize_distances(list_of_dicts, mode):
     n = len(list_of_dicts)
     m = len(list_of_dicts[0])
-    fig, axs = plt.subplot(m, n, figsize = (m*n,m*n))
+    fig, axs = plt.subplots(m, n, figsize=(n*m, n*m))
 
-    
+    #normalize weights:
+    minima = [1e99] * m
     for i, method in enumerate(list(list_of_dicts[0].keys())):
         for j, save_dict in enumerate(list_of_dicts):
-            for key, value in save_dict[method]:
-                s = key.split("-")
-                x = int(s[0]) + (int(s[1]) - int(s[0]))/2
-                axs[i, j].scatter(x, y=value)
+            for key, value in save_dict[method].items():
+                if value < minima[i]:
+                    minima[i] = value
+    
+    #plot distance graph
+    for i, method in enumerate(list(list_of_dicts[0].keys())):
+        for j, save_dict in enumerate(list_of_dicts):
+            for key, value in save_dict[method].items():
+                G = nx.complete_graph(n)
+                for u,v in G.edges():
+                    G[u][v]['weight'] = round(save_dict[method][str(u+1) + "-" + str(v+1)]/minima[i], 2)
+                pos = nx.circular_layout(G)
+                nx.draw(G, pos, ax = axs[i,j], with_labels = True)
+                labels = nx.get_edge_attributes(G, 'weight')
+                nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, ax=axs[i,j])
+                axs[i,j].set_title("(" + method + ", " + str(j+1) + ")")
+
+    plt.tight_layout()
+    plt.savefig(mode + ".png")
+
+def visualize_results_intra(mode, loss_based = False):
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    if loss_based:
+        pattern = re.compile(("e[0-9]_distances_lossbased.pkl"))
+    else:
+        pattern = re.compile(("e[0-9]_" + mode + "_distances.pkl"))
+
+    list_of_dicts = list()
+    for p in experiments_path.iterdir():
+        if pattern.match(p.name):
+            with open(p, "rb") as f:
+                loaded_dict = pickle.load(f)
+            list_of_dicts.append(loaded_dict)
+
+    if loss_based:
+        mode = "lossbased"
+    visualize_distances(list_of_dicts, mode + "Results")
+"""
+visualize_results_intra("positive", False)
+"""
+
+def between_groups(name1, name2, mode, iteration, save = True):
+    #load models to compare
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    winners1 = list()
+    winner_names1 = list()
+    pattern1 = re.compile((name1 + "_[0-9]"))
+    winners2 = list()
+    winner_names2 = list()
+    pattern2 = re.compile((name2 + "_[0-9]"))
+    for p in experiments_path.iterdir():
+        if pattern1.match(p.name):
+            models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
+            winners1.append(models[iteration + 1])
+            winner_names1.append(name1 + "_" + p.name[-1])
+        elif pattern2.match(p.name):
+            models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
+            winners2.append(models[iteration + 1])
+            winner_names2.append(name2 + "_" + p.name[-1])
+
+    #reset testloader
+    dataloaderhelper.reset_testloader_generator()
+
+    #calculate pairwise comparison
+    save_dict = dict()
+    names_to_method = {"vg": ("grad", False), "sg": ("grad", True), "ig": ("ig", False)}
+
+    for method in ["vg", "sg", "ig"]:
+        print("Method:", method)
+        print("-"*10)
+        save_dict[method] = dict()
+        for (i,j), (f_i,  f_j) in zip(itertools.product(winner_names1, winner_names2),
+                                    itertools.product(winners1, winners2)):
+            dataloaderhelper.reset_testloader_generator()
+            attribution_method, nt = names_to_method[method]
+            d, _ = calculate_model_dissimilarity(
+                model1=f_i,
+                model2=f_j,
+                dataloader=testloader,
+                attribution_method=attribution_method,
+                noise_tunnel=nt,
+                mode=mode
+            )
+            save_dict[method][(i + "-" + j)] = d
+
+    if save == True:
+        with open(experiments_path / (name1 + "_" + name2 + "_" + mode +  "_distances.pkl"), 'wb') as f:
+            pickle.dump(save_dict, f)
+
+    return save_dict
+
+"""start = time.time()
+save_dict = between_groups("e6", "e7", "positive", 8, save = True)
+end = time.time()
+print("Time of comparison:", end - start)
+"""
+
+
+def visualize_results_inter(mode, loss_based = False):
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    if loss_based:
+        pattern = re.compile(("e[0-9]_distances_lossbased.pkl"))
+    else:
+        pattern = re.compile(("e[0-9]_" + mode + "_distances.pkl"))
+
+    list_of_dicts = list()
+    for p in experiments_path.iterdir():
+        if pattern.match(p.name):
+            with open(p, "rb") as f:
+                loaded_dict = pickle.load(f)
+            list_of_dicts.append(loaded_dict)
+
+    if loss_based:
+        mode = "lossbased"
+    visualize_distances(list_of_dicts, mode + "Results")
