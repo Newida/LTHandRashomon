@@ -14,6 +14,7 @@ import utils
 import routines
 from captum.attr import IntegratedGradients, Saliency, DeepLift, NoiseTunnel
 import torch.nn.functional as F
+import re
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -414,8 +415,9 @@ def within_group(mode, name, iteration, save = True):
 
     winners = list()
     winner_names = list()
+    pattern = re.compile((name + "_[0-9]"))
     for p in experiments_path.iterdir():
-        if p.match(name + "_*"):
+        if pattern.match(p.name):
             models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
             winners.append(models[iteration])
             winner_names.append(p.name[-1])
@@ -425,46 +427,48 @@ def within_group(mode, name, iteration, save = True):
 
     #calculate pairwise comparison
     save_dict = dict()
+    names_to_method = {"vg": ("grad", False), "sg": ("grad", True), "ig": ("ig", False)}
 
-    for method, nt in [("grad", False), ("grad", True), ("ig", False)]:
+    for method in ["vg", "sg", "ig"]:
         print("Method:", method)
-        print("NT:", nt)
         print("-"*10)
         save_dict[method] = dict()
         for (i,j), (f_i,  f_j) in zip(itertools.combinations(winner_names, 2),
                                     itertools.combinations(winners, 2)):
             dataloaderhelper.reset_testloader_generator()
+            attribution_method, nt = names_to_method[method]
             d, _ = calculate_model_dissimilarity(
                 model1=f_i,
                 model2=f_j,
                 dataloader=testloader,
-                attribution_method=method,
+                attribution_method=attribution_method,
                 noise_tunnel=nt,
                 mode=mode
             )
             save_dict[method][(i + "-" + j)] = d.item()
 
     if save == True:
-        with open(experiments_path / (name + "_distances.pkl"), 'wb') as f:
+        with open(experiments_path / (name + "_" + mode +  "_distances.pkl"), 'wb') as f:
             pickle.dump(save_dict, f)
 
     return save_dict
-
-
+"""
 start = time.time()
 save_dict = within_group("positive", "e6", 8)
 end = time.time()
 print("Time of comparison:", end - start)
-
+"""
 
 def calculate_model_dissimilarity_lossbased(model1, model2, dataloader):
+    #this code is untested and creates a out of memory
     #prepare models
     model1.eval()
     model2.eval()
     model1.remove_pruning()
     model2.remove_pruning()
 
-    loss_criterion = Hparams.get_loss_criterion("crossentropy")
+    #loss function of network
+    loss_criterion = torch.nn.CrossEntropyLoss(reduction='none')
     
     dissimilarity = 0
     normalization = 0
@@ -479,21 +483,23 @@ def calculate_model_dissimilarity_lossbased(model1, model2, dataloader):
         labels1 = F.softmax(outputs1, dim=1)
         prediction_score, pred_labels_idx1 = torch.topk(labels1, 1)
         pred_labels_idx1.squeeze_()
-        loss1 = loss_criterion(outputs1, labels1)
         #calculate attribution for second model
         outputs2 = model2(inputs)
         labels2 = F.softmax(outputs2, dim=1)
         prediction_score, pred_labels_idx2 = torch.topk(labels2, 1)
         pred_labels_idx2.squeeze_()
-        loss2 = loss_criterion(outputs2, labels2)
-
+        
         #set samples with same predictions to 0 to not count them
         prediction_diff = pred_labels_idx1 - pred_labels_idx2
+        loss1 = loss_criterion(outputs1, labels1)
+        loss2 = loss_criterion(outputs2, labels2)
+        
         loss1[prediction_diff == 0] = 0
         loss2[prediction_diff == 0] = 0
-        dissimilarity += torch.sum(torch.abs(loss1 - loss2))
+        
+        dissimilarity += torch.sum(torch.abs(loss1 - loss2)).item()
         normalization += dataloader.batch_size - torch.sum(prediction_diff == 0).item()
-    
+
     return dissimilarity, normalization
 
 def within_group_lossbased(name, iteration, save = True):
@@ -505,8 +511,9 @@ def within_group_lossbased(name, iteration, save = True):
 
     winners = list()
     winner_names = list()
+    pattern = re.compile((name + "_[0-9]"))
     for p in experiments_path.iterdir():
-        if p.match(name + "_*"):
+        if pattern.match(p.name):
             models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
             winners.append(models[iteration])
             winner_names.append(p.name[-1])
@@ -527,8 +534,8 @@ def within_group_lossbased(name, iteration, save = True):
             model2=f_j,
             dataloader=testloader
         )
-        save_dict["l2_loss"][(i + "-" + j)] = l2_loss_difference.item()
-        save_dict["classification"][(i + "-" + j)] = classification_difference.item()
+        save_dict["l2_loss"][(i + "-" + j)] = l2_loss_difference
+        save_dict["classification"][(i + "-" + j)] = classification_difference
 
     if save == True:
         with open(experiments_path / (name + "_distances_lossbased.pkl"), 'wb') as f:
@@ -536,6 +543,20 @@ def within_group_lossbased(name, iteration, save = True):
     return save_dict
 
 start = time.time()
-save_dict = within_group_lossbased("e6", 8)
+save_dict = within_group_lossbased("e8", 8)
 end = time.time()
 print("Time of comparison:", end - start)
+
+
+def visualize_distances(list_of_dicts):
+    n = len(list_of_dicts)
+    m = len(list_of_dicts[0])
+    fig, axs = plt.subplot(m, n, figsize = (m*n,m*n))
+
+    
+    for i, method in enumerate(list(list_of_dicts[0].keys())):
+        for j, save_dict in enumerate(list_of_dicts):
+            for key, value in save_dict[method]:
+                s = key.split("-")
+                x = int(s[0]) + (int(s[1]) - int(s[0]))/2
+                axs[i, j].scatter(x, y=value)
