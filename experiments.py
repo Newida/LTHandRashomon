@@ -16,6 +16,7 @@ from captum.attr import IntegratedGradients, Saliency, DeepLift, NoiseTunnel
 import torch.nn.functional as F
 import re
 import networkx as nx
+import graphviz
 
 try:
     torch.backends.cudnn.deterministic = True
@@ -454,12 +455,12 @@ def within_group(mode, name, iteration, save = True):
 
     return save_dict
 
-
+"""
 start = time.time()
 save_dict = within_group("positive", "e8", 8)
 end = time.time()
 print("Time of comparison:", end - start)
-
+"""
 
 def calculate_model_dissimilarity_lossbased(model1, model2, dataloader):
     #this code is untested and creates a out of memory
@@ -659,12 +660,13 @@ def between_groups(name1, name2, mode, iteration, save = True):
 
     return save_dict
 
-"""start = time.time()
+"""
+#TODO: between_groups_lossbased
+start = time.time()
 save_dict = between_groups("e6", "e7", "positive", 8, save = True)
 end = time.time()
 print("Time of comparison:", end - start)
 """
-
 
 def visualize_results_inter(mode, loss_based = False):
     workdir = Path.cwd()
@@ -675,7 +677,7 @@ def visualize_results_inter(mode, loss_based = False):
     if loss_based:
         pattern = re.compile(("e[0-9]_distances_lossbased.pkl"))
     else:
-        pattern = re.compile(("e[0-9]_" + mode + "_distances.pkl"))
+        pattern = re.compile(("e[0-9]_e[0-9]_" + mode + "_distances.pkl"))
 
     list_of_dicts = list()
     for p in experiments_path.iterdir():
@@ -686,4 +688,54 @@ def visualize_results_inter(mode, loss_based = False):
 
     if loss_based:
         mode = "lossbased"
-    visualize_distances(list_of_dicts, mode + "Results")
+    visualize_distances_inter(list_of_dicts, mode + "Results")
+
+
+def visualize_distances_inter(list_of_dicts, name):
+    n = len(list_of_dicts)
+    m = len(list_of_dicts[0])
+
+    save_path = workdir / "experiments" / name
+    if not data_path.exists():
+        data_path.mkdir(parents=True)
+
+    #normalize weights:
+    minima = [1e99] * m
+    for i, method in enumerate(list(list_of_dicts[0].keys())):
+        for j, save_dict in enumerate(list_of_dicts):
+            for key, value in save_dict[method].items():
+                if value < minima[i]:
+                    minima[i] = value
+    
+    #plot distance graph
+    for i, method in enumerate(list(list_of_dicts[0].keys())):
+        for j, save_dict in enumerate(list_of_dicts):
+            dot_graph = create_graphviz_description(save_dict, method, minima[i])
+            graph = graphviz.Source(dot_graph)
+            print(save_path / (method + "_" + str(j)))
+            graph.render(save_path / (method + "_" + str(j + 1) + ".png"), format='png', cleanup=True)
+            
+
+
+def create_graphviz_description(save_dict, method, normalizer):
+    s = '''
+    graph bipartite {
+        edge [style="dashed"]
+
+    '''
+    l1 = "{rank=same;"
+    l2 = "{rank=same;"
+    for key, value in save_dict[method].items():
+        node1, node2 = key.split("-")
+        s += "\t" + node1 + " -- " + node2 + " [label=" + str(round(value/normalizer, 2)) + "]\n"
+        l1 += node1 + ";"
+        l2 += node2 + ";"
+
+    s += "\n"
+    s += l1 + "}" + "\n"
+    s += l2 + "}" + "\n"
+    s += "}"
+    print(s)
+    return s
+
+visualize_results_inter("positive")
