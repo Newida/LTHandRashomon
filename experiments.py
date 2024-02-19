@@ -409,7 +409,6 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
     return dissimilarity, normalization
 
 def within_group(mode, name, iteration, save = True):
-
     if mode == "lossbased":
         return within_group_lossbased(name, iteration, save)
     #load models to compare
@@ -457,12 +456,6 @@ def within_group(mode, name, iteration, save = True):
             pickle.dump(save_dict, f)
 
     return save_dict
-
-"""start = time.time()
-save_dict = within_group("positive", "e8", 8)
-end = time.time()
-print("Time of comparison:", end - start)
-"""
 
 def calculate_model_dissimilarity_lossbased(model1, model2, dataloader):
     #prepare models
@@ -520,7 +513,7 @@ def within_group_lossbased(name, iteration, save = True):
         if pattern.match(p.name):
             models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
             winners.append(models[iteration + 1])
-            winner_names.append(p.name[-1])
+            winner_names.append(name + "_" + p.name[-1])
 
     #reset testloader
     dataloaderhelper.reset_testloader_generator()
@@ -538,8 +531,8 @@ def within_group_lossbased(name, iteration, save = True):
             model2=f_j,
             dataloader=testloader
         )
-        save_dict["l2_loss"][(name + "_" + i + "-" + name + "_" + j)] = l2_loss_difference
-        save_dict["classification"][(name + "_" + i + "-" + name + "_" + j)] = classification_difference
+        save_dict["l2_loss"][(i + "-" + j)] = l2_loss_difference
+        save_dict["classification"][(i + "-" + j)] = classification_difference
 
     if save == True:
         with open(experiments_path / (name + "_distances_lossbased.pkl"), 'wb') as f:
@@ -575,6 +568,14 @@ def create_graphviz_description_intra(save_dict, method, normalizer):
         node [shape=circle];
 
     '''
+
+    all_labels = list()
+    for key, value in save_dict[method].items():
+        label = round(value/normalizer, 2)
+        all_labels.append(label)
+    
+    color_map = define_map_labels_to_colors(all_labels)
+
     for n1, n2 in [node.split("-") for node in list(save_dict[method].keys())]:
         s += n1 + "; "
         s += n2 + "; "
@@ -582,7 +583,10 @@ def create_graphviz_description_intra(save_dict, method, normalizer):
     s += "\n"
     for edge, value in save_dict[method].items():
         s += (" -- ").join(edge.split("-"))
-        s += "[label=" + str(round(value/normalizer, 2)) + "];\n"
+        label = round(value/normalizer, 2)
+        s += "[label=" + str(label) + ";"
+        s += "fontcolor=" + str(color_map[label]) + ", color=" + str(color_map[label])
+        s+= "];\n"
 
     s += "}"
     return s
@@ -607,7 +611,6 @@ def visualize_results_intra(mode):
 
     plot_intra_distance_graphs(list_of_dicts, mode + "intraResults")
 
-#visualize_results_intra("positive")
 
 def between_groups(name1, name2, mode, iteration, save = True):
 
@@ -714,10 +717,6 @@ def between_groups_lossbased(name1, name2, iteration, save = True):
 
     return save_dict
 
-start = time.time()
-save_dict = between_groups("e6", "e8", "positive", 8, save = True)
-end = time.time()
-print("Time of comparison:", end - start)
 
 def visualize_distances_inter_and_intra(mode):
     workdir = Path.cwd()
@@ -761,7 +760,6 @@ def visualize_distances_inter_and_intra(mode):
     
     plot_inter_distance_graphs(list_of_dicts_inter, normalizer, mode + "Results")
 
-
 def plot_inter_distance_graphs(list_of_dicts_inter, normalizer, name):
     save_path = workdir / "experiments" / name
     if not save_path.exists():
@@ -775,17 +773,42 @@ def plot_inter_distance_graphs(list_of_dicts_inter, normalizer, name):
             node1, node2 = [node.split("_")[0] for node in list(save_dict['vg'].keys())[0].split("-")]
             graph.render(save_path / (method + "_" + node1 + "_" + node2), format='png', cleanup=True)
 
+def define_map_labels_to_colors(values):
+    min_value = min(values)
+    max_value = max(values)
+
+    min_integer = 5
+    max_integer = 10
+
+    color_map = dict()
+    for value in values:
+        color = min_integer + int(((value - min_value) / (max_value - min_value)) * (max_integer - min_integer))
+        color_map[value] = color
+    
+    return color_map
+
 def create_graphviz_description(save_dict, method, normalizer):
     s = '''
     graph bipartite {
-        edge [style="dashed"]
+        edge [style="dashed", colorscheme=Greens9]
 
     '''
     l1 = "{rank=same;"
     l2 = "{rank=same;"
+
+    all_labels = list()
+    for key, value in save_dict[method].items():
+        label = round(value/normalizer, 2)
+        all_labels.append(label)
+    
+    color_map = define_map_labels_to_colors(all_labels)
+
     for key, value in save_dict[method].items():
         node1, node2 = key.split("-")
-        s += "\t" + node1 + " -- " + node2 + " [label=" + str(round(value/normalizer, 2)) + "]\n"
+        label = round(value/normalizer, 2)
+        s += "\t" + node1 + " -- " + node2 + " [label=" + str(label) + ", "
+        s += "fontcolor=" + str(color_map[label]) + ", color=" + str(color_map[label])
+        s += "]\n"
         l1 += node1 + ";"
         l2 += node2 + ";"
 
@@ -795,4 +818,16 @@ def create_graphviz_description(save_dict, method, normalizer):
     s += "}"
     return s
 
-#visualize_distances_inter_and_intra("positive")
+"""
+start = time.time()
+save_dict = within_group("abs", "e6", 8)
+end = time.time()
+print("Time of comparison:", end - start)
+"""
+visualize_results_intra("lossbased")
+
+#start = time.time()
+#save_dict = between_groups("e6", "e7", "lossbased", 8, save = True)
+#end = time.time()
+#print("Time of comparison:", end - start)
+visualize_distances_inter_and_intra("positive")
