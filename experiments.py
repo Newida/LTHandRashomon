@@ -566,10 +566,10 @@ def plot_intra_distance_graphs(list_of_dicts, name):
     #plot distance graph
     for i, method in enumerate(list(list_of_dicts[0].keys())):
         for j, save_dict in enumerate(list_of_dicts):
-            circ_graph = create_graphviz_description(save_dict, method, normalizer[i])
+            circ_graph = create_graphviz_description_intra(save_dict, method, normalizer[i])
             graph = graphviz.Source(circ_graph, engine="circo")
-            node1, node2 = [node.split("_")[0] for node in list(save_dict['vg'].keys())[0].split("-")]
-            graph.render(save_path / (method + node1), format='png', cleanup=True)
+            node1, node2 = [node.split("_")[0] for node in list(save_dict[method].keys())[0].split("-")]
+            graph.render(save_path / (method + "_" + node1), format='png', cleanup=True)
 
 def create_graphviz_description_intra(save_dict, method, normalizer):
     s = '''
@@ -580,8 +580,8 @@ def create_graphviz_description_intra(save_dict, method, normalizer):
 
     '''
     for n1, n2 in [node.split("-") for node in list(save_dict[method].keys())]:
-        s += n1.split("_")[0] + "; "
-        s += n2.split("_")[0] + "; "
+        s += n1 + "; "
+        s += n2 + "; "
 
     s += "\n"
     for edge, value in save_dict[method].items():
@@ -590,7 +590,7 @@ def create_graphviz_description_intra(save_dict, method, normalizer):
 
     s += "}"
     print(s)
-    return
+    return s
 
 
 def visualize_results_intra(mode, loss_based = False):
