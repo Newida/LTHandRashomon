@@ -409,6 +409,9 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
     return dissimilarity, normalization
 
 def within_group(mode, name, iteration, save = True):
+
+    if mode == "lossbased":
+        return within_group_lossbased(name, iteration, save)
     #load models to compare
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"
@@ -543,13 +546,6 @@ def within_group_lossbased(name, iteration, save = True):
             pickle.dump(save_dict, f)
     return save_dict
 
-"""
-start = time.time()
-save_dict = within_group_lossbased("e7", 8)
-end = time.time()
-print("Time of comparison:", end - start)
-"""
-
 def plot_intra_distance_graphs(list_of_dicts, name):
     save_path = workdir / "experiments" / name
     if not save_path.exists():
@@ -589,17 +585,15 @@ def create_graphviz_description_intra(save_dict, method, normalizer):
         s += "[label=" + str(round(value/normalizer, 2)) + "];\n"
 
     s += "}"
-    print(s)
     return s
 
-
-def visualize_results_intra(mode, loss_based = False):
+def visualize_results_intra(mode):
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"
     if not experiments_path.exists():
         raise ValueError("No exerpiment exists.")
 
-    if loss_based:
+    if mode == "lossbased":
         pattern = re.compile(("e[0-9]_distances_lossbased.pkl"))
     else:
         pattern = re.compile(("e[0-9]_" + mode + "_distances.pkl"))
@@ -611,15 +605,14 @@ def visualize_results_intra(mode, loss_based = False):
                 loaded_dict = pickle.load(f)
             list_of_dicts.append(loaded_dict)
 
-    if loss_based:
-        mode = "lossbased"
     plot_intra_distance_graphs(list_of_dicts, mode + "intraResults")
 
-
-visualize_results_intra("positive", False)
-
+#visualize_results_intra("positive")
 
 def between_groups(name1, name2, mode, iteration, save = True):
+
+    if mode == "lossbased":
+        return between_groups_lossbased(name1, name2, iteration, save)
     #load models to compare
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"
@@ -721,12 +714,10 @@ def between_groups_lossbased(name1, name2, iteration, save = True):
 
     return save_dict
 
-"""
 start = time.time()
 save_dict = between_groups("e6", "e8", "positive", 8, save = True)
 end = time.time()
 print("Time of comparison:", end - start)
-"""
 
 def visualize_distances_inter_and_intra(mode):
     workdir = Path.cwd()
