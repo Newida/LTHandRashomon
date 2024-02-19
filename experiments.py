@@ -422,14 +422,14 @@ def within_group(mode, name, iteration, save = True):
         if pattern.match(p.name):
             models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
             winners.append(models[iteration + 1])
-            winner_names.append(p.name[-1])
+            winner_names.append(name + "_" + p.name[-1])
 
     #reset testloader
     dataloaderhelper.reset_testloader_generator()
 
     #calculate pairwise comparison
     save_dict = dict()
-    names_to_method = {"vg": ("grad", False), "sg": ("grad", True), "ig": ("ig", False)}
+    names_to_parameters = {"vg": ("grad", False), "sg": ("grad", True), "ig": ("ig", False)}
 
     for method in ["vg", "sg", "ig"]:
         print("Method:", method)
@@ -438,7 +438,7 @@ def within_group(mode, name, iteration, save = True):
         for (i,j), (f_i,  f_j) in zip(itertools.combinations(winner_names, 2),
                                     itertools.combinations(winners, 2)):
             dataloaderhelper.reset_testloader_generator()
-            attribution_method, nt = names_to_method[method]
+            attribution_method, nt = names_to_parameters[method]
             d, _ = calculate_model_dissimilarity(
                 model1=f_i,
                 model2=f_j,
@@ -447,7 +447,7 @@ def within_group(mode, name, iteration, save = True):
                 noise_tunnel=nt,
                 mode=mode
             )
-            save_dict[method][(i + "-" + j)] = d
+            save_dict[method][i + "-" + j] = d
 
     if save == True:
         with open(experiments_path / (name + "_" + mode +  "_distances.pkl"), 'wb') as f:
@@ -455,15 +455,13 @@ def within_group(mode, name, iteration, save = True):
 
     return save_dict
 
-"""
-start = time.time()
+"""start = time.time()
 save_dict = within_group("positive", "e8", 8)
 end = time.time()
 print("Time of comparison:", end - start)
 """
 
 def calculate_model_dissimilarity_lossbased(model1, model2, dataloader):
-    #this code is untested and creates a out of memory
     #prepare models
     model1.eval()
     model2.eval()
@@ -537,8 +535,8 @@ def within_group_lossbased(name, iteration, save = True):
             model2=f_j,
             dataloader=testloader
         )
-        save_dict["l2_loss"][(i + "-" + j)] = l2_loss_difference
-        save_dict["classification"][(i + "-" + j)] = classification_difference
+        save_dict["l2_loss"][(name + "_" + i + "-" + name + "_" + j)] = l2_loss_difference
+        save_dict["classification"][(name + "_" + i + "-" + name + "_" + j)] = classification_difference
 
     if save == True:
         with open(experiments_path / (name + "_distances_lossbased.pkl"), 'wb') as f:
@@ -547,39 +545,53 @@ def within_group_lossbased(name, iteration, save = True):
 
 """
 start = time.time()
-save_dict = within_group_lossbased("e8", 8)
+save_dict = within_group_lossbased("e7", 8)
 end = time.time()
 print("Time of comparison:", end - start)
 """
 
-def visualize_distances(list_of_dicts, mode):
-    n = len(list_of_dicts)
-    m = len(list_of_dicts[0])
-    fig, axs = plt.subplots(m, n, figsize=(n*m, n*m))
+def plot_intra_distance_graphs(list_of_dicts, name):
+    save_path = workdir / "experiments" / name
+    if not save_path.exists():
+        save_path.mkdir(parents=True)
 
     #normalize weights:
-    minima = [1e99] * m
+    normalizer = [1e99] * len(list_of_dicts[0])
     for i, method in enumerate(list(list_of_dicts[0].keys())):
         for j, save_dict in enumerate(list_of_dicts):
             for key, value in save_dict[method].items():
-                if value < minima[i]:
-                    minima[i] = value
+                if value < normalizer[i]:
+                    normalizer[i] = value
     
     #plot distance graph
     for i, method in enumerate(list(list_of_dicts[0].keys())):
         for j, save_dict in enumerate(list_of_dicts):
-            for key, value in save_dict[method].items():
-                G = nx.complete_graph(n)
-                for u,v in G.edges():
-                    G[u][v]['weight'] = round(save_dict[method][str(u+1) + "-" + str(v+1)]/minima[i], 2)
-                pos = nx.circular_layout(G)
-                nx.draw(G, pos, ax = axs[i,j], with_labels = True)
-                labels = nx.get_edge_attributes(G, 'weight')
-                nx.draw_networkx_edge_labels(G, pos, edge_labels=labels, ax=axs[i,j])
-                axs[i,j].set_title("(" + method + ", " + str(j+1) + ")")
+            circ_graph = create_graphviz_description(save_dict, method, normalizer[i])
+            graph = graphviz.Source(circ_graph, engine="circo")
+            node1, node2 = [node.split("_")[0] for node in list(save_dict['vg'].keys())[0].split("-")]
+            graph.render(save_path / (method + node1), format='png', cleanup=True)
 
-    plt.tight_layout()
-    plt.savefig(mode + ".png")
+def create_graphviz_description_intra(save_dict, method, normalizer):
+    s = '''
+    graph bipartite {
+        edge [style="dashed"]
+
+        node [shape=circle];
+
+    '''
+    for n1, n2 in [node.split("-") for node in list(save_dict[method].keys())]:
+        s += n1.split("_")[0] + "; "
+        s += n2.split("_")[0] + "; "
+
+    s += "\n"
+    for edge, value in save_dict[method].items():
+        s += (" -- ").join(edge.split("-"))
+        s += "[label=" + str(round(value/normalizer, 2)) + "];\n"
+
+    s += "}"
+    print(s)
+    return
+
 
 def visualize_results_intra(mode, loss_based = False):
     workdir = Path.cwd()
@@ -601,10 +613,11 @@ def visualize_results_intra(mode, loss_based = False):
 
     if loss_based:
         mode = "lossbased"
-    visualize_distances(list_of_dicts, mode + "Results")
-"""
+    plot_intra_distance_graphs(list_of_dicts, mode + "intraResults")
+
+
 visualize_results_intra("positive", False)
-"""
+
 
 def between_groups(name1, name2, mode, iteration, save = True):
     #load models to compare
@@ -634,7 +647,7 @@ def between_groups(name1, name2, mode, iteration, save = True):
 
     #calculate pairwise comparison
     save_dict = dict()
-    names_to_method = {"vg": ("grad", False), "sg": ("grad", True), "ig": ("ig", False)}
+    names_to_parameters = {"vg": ("grad", False), "sg": ("grad", True), "ig": ("ig", False)}
 
     for method in ["vg", "sg", "ig"]:
         print("Method:", method)
@@ -643,7 +656,7 @@ def between_groups(name1, name2, mode, iteration, save = True):
         for (i,j), (f_i,  f_j) in zip(itertools.product(winner_names1, winner_names2),
                                     itertools.product(winners1, winners2)):
             dataloaderhelper.reset_testloader_generator()
-            attribution_method, nt = names_to_method[method]
+            attribution_method, nt = names_to_parameters[method]
             d, _ = calculate_model_dissimilarity(
                 model1=f_i,
                 model2=f_j,
@@ -660,62 +673,116 @@ def between_groups(name1, name2, mode, iteration, save = True):
 
     return save_dict
 
-"""
-#TODO: between_groups_lossbased
-start = time.time()
-save_dict = between_groups("e6", "e7", "positive", 8, save = True)
-end = time.time()
-print("Time of comparison:", end - start)
-"""
-
-def visualize_results_inter(mode, loss_based = False):
+def between_groups_lossbased(name1, name2, iteration, save = True):
+    #load models to compare
     workdir = Path.cwd()
     experiments_path = workdir / "experiments"
     if not experiments_path.exists():
         raise ValueError("No exerpiment exists.")
 
-    if loss_based:
-        pattern = re.compile(("e[0-9]_distances_lossbased.pkl"))
+    winners1 = list()
+    winner_names1 = list()
+    pattern1 = re.compile((name1 + "_[0-9]"))
+    winners2 = list()
+    winner_names2 = list()
+    pattern2 = re.compile((name2 + "_[0-9]"))
+    for p in experiments_path.iterdir():
+        if pattern1.match(p.name):
+            models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
+            winners1.append(models[iteration + 1])
+            winner_names1.append(name1 + "_" + p.name[-1])
+        elif pattern2.match(p.name):
+            models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
+            winners2.append(models[iteration + 1])
+            winner_names2.append(name2 + "_" + p.name[-1])
+
+    #reset testloader
+    dataloaderhelper.reset_testloader_generator()
+
+    #calculate pairwise comparison
+    save_dict = dict()
+    save_dict["l2_loss"] = dict()
+    save_dict["classification"] = dict()
+
+    for (i,j), (f_i,  f_j) in zip(itertools.product(winner_names1, winner_names2),
+                                itertools.product(winners1, winners2)):
+        dataloaderhelper.reset_testloader_generator()
+        l2_loss_difference, classification_difference = calculate_model_dissimilarity_lossbased(
+            model1=f_i,
+            model2=f_j,
+            dataloader=testloader
+        )
+        save_dict["l2_loss"][(i + "-" + j)] = l2_loss_difference
+        save_dict["classification"][(i + "-" + j)] = classification_difference
+
+    if save == True:
+        with open(experiments_path / (name1 + "_" + name2 + "_distances_lossbased.pkl"), 'wb') as f:
+            pickle.dump(save_dict, f)
+
+    return save_dict
+
+"""
+start = time.time()
+save_dict = between_groups("e6", "e8", "positive", 8, save = True)
+end = time.time()
+print("Time of comparison:", end - start)
+"""
+
+def visualize_distances_inter_and_intra(mode):
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    if mode == "lossbased":
+        pattern = re.compile(("e[0-9]_e[0-9]_distances_lossbased.pkl"))
     else:
         pattern = re.compile(("e[0-9]_e[0-9]_" + mode + "_distances.pkl"))
 
-    list_of_dicts = list()
-    for p in experiments_path.iterdir():
+    list_of_dicts_inter = list()
+    for p in sorted(experiments_path.iterdir()):
         if pattern.match(p.name):
             with open(p, "rb") as f:
                 loaded_dict = pickle.load(f)
-            list_of_dicts.append(loaded_dict)
+            list_of_dicts_inter.append(loaded_dict)
 
-    if loss_based:
-        mode = "lossbased"
-    visualize_distances_inter(list_of_dicts, mode + "Results")
+    if mode == "lossbased":
+        pattern = re.compile(("e[0-9]_distances_lossbased.pkl"))
+    else:
+        pattern = re.compile(("e[0-9]_" + mode + "_distances.pkl"))
+    
+    #get intras results for calculating the normalizer
+    list_of_dicts_intra = list()
+    for p in sorted(experiments_path.iterdir()):
+        if pattern.match(p.name):
+            with open(p, "rb") as f:
+                loaded_dict = pickle.load(f)
+            list_of_dicts_intra.append(loaded_dict)
 
-
-def visualize_distances_inter(list_of_dicts, name):
-    n = len(list_of_dicts)
-    m = len(list_of_dicts[0])
-
-    save_path = workdir / "experiments" / name
-    if not data_path.exists():
-        data_path.mkdir(parents=True)
-
-    #normalize weights:
-    minima = [1e99] * m
-    for i, method in enumerate(list(list_of_dicts[0].keys())):
-        for j, save_dict in enumerate(list_of_dicts):
+    #find normalization weights per xml method
+    normalizer = [1e99] * len(list_of_dicts_intra[0])
+    for i, method in enumerate(list(list_of_dicts_intra[0].keys())):
+        for j, save_dict in enumerate(list_of_dicts_intra):
             for key, value in save_dict[method].items():
-                if value < minima[i]:
-                    minima[i] = value
+                if value < normalizer[i]:
+                    normalizer[i] = value
+
+    
+    plot_inter_distance_graphs(list_of_dicts_inter, normalizer, mode + "Results")
+
+
+def plot_inter_distance_graphs(list_of_dicts_inter, normalizer, name):
+    save_path = workdir / "experiments" / name
+    if not save_path.exists():
+        save_path.mkdir(parents=True)
     
     #plot distance graph
-    for i, method in enumerate(list(list_of_dicts[0].keys())):
-        for j, save_dict in enumerate(list_of_dicts):
-            dot_graph = create_graphviz_description(save_dict, method, minima[i])
+    for i, method in enumerate(list(list_of_dicts_inter[0].keys())):
+        for j, save_dict in enumerate(list_of_dicts_inter):
+            dot_graph = create_graphviz_description(save_dict, method, normalizer[i])
             graph = graphviz.Source(dot_graph)
-            print(save_path / (method + "_" + str(j)))
-            graph.render(save_path / (method + "_" + str(j + 1) + ".png"), format='png', cleanup=True)
-            
-
+            node1, node2 = [node.split("_")[0] for node in list(save_dict['vg'].keys())[0].split("-")]
+            graph.render(save_path / (method + "_" + node1 + "_" + node2), format='png', cleanup=True)
 
 def create_graphviz_description(save_dict, method, normalizer):
     s = '''
@@ -735,7 +802,6 @@ def create_graphviz_description(save_dict, method, normalizer):
     s += l1 + "}" + "\n"
     s += l2 + "}" + "\n"
     s += "}"
-    print(s)
     return s
 
-visualize_results_inter("positive")
+#visualize_distances_inter_and_intra("positive")
