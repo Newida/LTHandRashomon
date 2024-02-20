@@ -312,15 +312,19 @@ def compare_winning_tickets(name1, name2, L, step_size = 0.1):
     plt.plot(x, errors)
     plt.savefig(experiments_path / ("linear_mode_connectivity-" + name1 + "-" +
                                      name2 + "-" + str(L) + ".png"))
-"""
 start = time.time()
 for i in [6,8]:
-    compare_winning_tickets("e8_1", "e8_2", i)
-    compare_winning_tickets("e8_1", "e8_3", i)
-    compare_winning_tickets("e8_2", "e8_3", i)
+    compare_winning_tickets("e6_1", "e7_2", i)
+    compare_winning_tickets("e6_1", "e8_3", i)
+    compare_winning_tickets("e6_2", "e7_1", i)
+    compare_winning_tickets("e6_2", "e7_2", i)
+    compare_winning_tickets("e6_2", "e7_3", i)
+    compare_winning_tickets("e6_3", "e7_1", i)
+    compare_winning_tickets("e6_3", "e7_2", i)
+    compare_winning_tickets("e6_3", "e7_3", i)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
-"""
+
 
 def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method, noise_tunnel, mode):
     #prepare models
@@ -563,7 +567,7 @@ def plot_intra_distance_graphs(list_of_dicts, name):
 def create_graphviz_description_intra(save_dict, method, normalizer):
     s = '''
     graph bipartite {
-        edge [style="dashed"]
+        edge [style="dashed", colorscheme=Greens9]
 
         node [shape=circle];
 
@@ -587,7 +591,7 @@ def create_graphviz_description_intra(save_dict, method, normalizer):
         s += "[label=" + str(label) + ";"
         s += "fontcolor=" + str(color_map[label]) + ", color=" + str(color_map[label])
         s+= "];\n"
-
+        
     s += "}"
     return s
 
@@ -778,7 +782,7 @@ def define_map_labels_to_colors(values):
     max_value = max(values)
 
     min_integer = 5
-    max_integer = 10
+    max_integer = 9
 
     color_map = dict()
     for value in values:
@@ -820,14 +824,27 @@ def create_graphviz_description(save_dict, method, normalizer):
 
 """
 start = time.time()
-save_dict = within_group("abs", "e6", 8)
+save_dict = within_group("all", "e8", 8)
 end = time.time()
 print("Time of comparison:", end - start)
 """
-visualize_results_intra("lossbased")
+#visualize_results_intra("all")
 
-#start = time.time()
-#save_dict = between_groups("e6", "e7", "lossbased", 8, save = True)
-#end = time.time()
-#print("Time of comparison:", end - start)
-visualize_distances_inter_and_intra("positive")
+start = time.time()
+"""save_dict = between_groups("e7", "e8", "positive", 8, save = True)
+save_dict = between_groups("e6", "e7", "abs", 8, save = True)
+save_dict = between_groups("e6", "e8", "abs", 8, save = True)
+save_dict = between_groups("e7", "e8", "abs", 8, save = True)
+
+save_dict = between_groups("e6", "e7", "all", 8, save = True)
+save_dict = between_groups("e6", "e8", "all", 8, save = True)
+save_dict = between_groups("e7", "e8", "all", 8, save = True)
+
+save_dict = between_groups("e6", "e7", "lossbased", 8, save = True)
+save_dict = between_groups("e6", "e8", "lossbased", 8, save = True)
+save_dict = between_groups("e7", "e8", "lossbased", 8, save = True)
+
+end = time.time()
+print("Time of comparison:", end - start)
+"""
+#visualize_distances_inter_and_intra("lossbased")
