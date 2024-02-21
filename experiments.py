@@ -852,7 +852,7 @@ def k_feature_distance(model1, model2, dataloader, attribution_method, noise_tun
     generator.manual_seed(dataloader.generator.initial_seed())
     dataloader = torch.utils.data.DataLoader(
         dataloader.dataset,
-        batch_size=2,
+        batch_size=1,
         shuffle=False,
         num_workers=1,
         generator = generator
@@ -863,8 +863,7 @@ def k_feature_distance(model1, model2, dataloader, attribution_method, noise_tun
     model1.remove_pruning()
     model2.remove_pruning()
     
-    dissimilarity = 0
-    normalization = 0
+    similarities = list()
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     if attribution_method == "grad":
@@ -885,17 +884,6 @@ def k_feature_distance(model1, model2, dataloader, attribution_method, noise_tun
             print("Cannot calculate smoothgrad for ig, since it takes to much memory")
             print("Ig without smoothgrad is performed.")
         
-        #create new dataloader with smaller batch_size to avoid out of memory error
-        generator = torch.Generator()
-        generator.manual_seed(dataloader.generator.initial_seed())
-        dataloader = torch.utils.data.DataLoader(
-            dataloader.dataset,
-            batch_size=20,
-            shuffle=False,
-            num_workers=1,
-            generator = generator
-        )
-    
     else:
         print("Attribution method not known. Choose either ig or grad.")
         return
@@ -919,6 +907,11 @@ def k_feature_distance(model1, model2, dataloader, attribution_method, noise_tun
         pred_labels_idx2.squeeze_()
         attributions2 = attr_algo2.attribute(inputs, target=pred_labels_idx2, **kwargs)
 
+        #do not count samples with different predictions
+        prediction_diff = pred_labels_idx1 - pred_labels_idx2
+        if prediction_diff.item() > 1e-6:
+            continue
+        
         #calculate pairwise distances
         if mode == "positive":
             #set negative gradients to 0
@@ -928,51 +921,98 @@ def k_feature_distance(model1, model2, dataloader, attribution_method, noise_tun
             #take the absolute values of attributions
             attributions1 = torch.abs(attributions1)
             attributions2 = torch.abs(attributions2)
-        #set samples with different predictions to 0 to not count them
-        prediction_diff = pred_labels_idx1 - pred_labels_idx2
-        attributions1[prediction_diff != 0] = 0
-        attributions2[prediction_diff != 0] = 0
-        
         #calculate k-feature agreement
-        print(attributions1.shape)
         create_superpixel = torch.nn.AvgPool2d(kernel_size=4)
         superpixel1 = create_superpixel(attributions1)
         superpixel2 = create_superpixel(attributions2)
 
-        print(superpixel1.shape)
         #summarize channels by taking the mean value
         superpixel1 = torch.mean(superpixel1, dim=1)
-        print(superpixel1.shape)
         superpixel2 = torch.mean(superpixel2, dim=1)
-
-        print(superpixel1.flatten(start_dim=1).shape)
         feature_importance1 = torch.argsort(superpixel1.flatten(start_dim=1))
-        print(feature_importance1.shape)
         feature_importance2 = torch.argsort(superpixel2.flatten(start_dim=1))
 
         top_k_features1 = torch.argsort(feature_importance1)[:, :k]
-        print(top_k_features1.shape)
         top_k_features2 = torch.argsort(feature_importance2)[:, :k]
-        print(top_k_features1)
-        print(top_k_features2)
-
         d = torch.cat([top_k_features1, top_k_features2], dim=1)
-        print(d)
         d, counts = torch.unique(d, return_counts=True)
-        print(counts)
-        d = torch.sum(counts > 1, dim=1)
-        print(d)
+        d = torch.sum(counts > 1).item()
+        similarities.append(d / k)
+
+    return torch.mean(similarities), torch.std(similarities)
+
+def find_k(name, iteration, dataloader, attribution_method, noise_tunnel, mode):
+    generator = torch.Generator()
+    generator.manual_seed(dataloader.generator.initial_seed())
+    dataloader = torch.utils.data.DataLoader(
+        dataloader.dataset,
+        batch_size=128,
+        shuffle=False,
+        num_workers=1,
+        generator = generator
+    )
+    #load models to compare
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    models1, all_stats1, _1, _2, _3, _4 = routines.load_experiment(experiments_path / name)
+    model = models1[iteration + 1]
+    model.eval()
+    model.remove_pruning()
+    
+    if attribution_method == "grad":
+        attr_algo = Saliency(model)
+        kwargs = {"abs": False}
+        if noise_tunnel == True:
+            attr_algo = NoiseTunnel(attr_algo)
+            kwargs = {"abs": False, "nt_type": 'smoothgrad', "nt_samples": 20, "stdevs": 0.2}
+
+    elif attribution_method == "ig":
+        attr_algo = IntegratedGradients(model)
+        #can specify baseline here but default is alread 0 so not necessary
+        kwargs = {"n_steps": 100, "return_convergence_delta": False}
+        if noise_tunnel == True:
+            print("Cannot calculate smoothgrad for ig, since it takes to much memory")
+            print("Ig without smoothgrad is performed.")
         
-    dissimilarity/normalization
+    else:
+        print("Attribution method not known. Choose either ig or grad.")
+        return
+    
+    for j, data in enumerate(dataloader):
+        inputs, labels = data
+        inputs = inputs.to(device)
+        inputs.requires_grad = True
+        labels = labels.to(device)
+        #calculate attribution for first model
+        outputs1 = model(inputs)
+        labels1 = F.softmax(outputs1, dim=1)
+        prediction_score, pred_labels_idx1 = torch.topk(labels1, 1)
+        pred_labels_idx1.squeeze_()
+        torch.cuda.empty_cache()
+        attributions1 = attr_algo.attribute(inputs, target=pred_labels_idx1, **kwargs)
+        #calculate pairwise distances
+        if mode == "positive":
+            #set negative gradients to 0
+            attributions1[attributions1 < 0] = 0
+        elif mode == "abs":
+            #take the absolute values of attributions
+            attributions1 = torch.abs(attributions1)
+        #calculate k-feature agreement
+        create_superpixel = torch.nn.AvgPool2d(kernel_size=4)
+        superpixel1 = create_superpixel(attributions1)
+        #summarize channels by taking the mean value
+        superpixel1 = torch.mean(superpixel1, dim=1)
+        values, indices = torch.sort(superpixel1.flatten(start_dim=1), dim = 1, descending = True)
+        f1_importances = values
+        x = np.linspace(0, 63, num=64)
+        y = f1_importances
+        plt.xlabel('features')
+        plt.ylabel('importance')
+        for i, y_ in enumerate(y):
+            plt.plot(x, y_.detach().cpu())
+        # Save the plot to a file
+        plt.savefig(name + "-" + mode + "-" + str(j) + '.png')
 
-    return dissimilarity, normalization
 
-
-#load models to compare
-workdir = Path.cwd()
-experiments_path = workdir / "experiments"
-
-models1, all_stats1, _1, _2, _3, _4 = routines.load_experiment(experiments_path / "e6_1")
-models2, all_stats1, _1, _2, _3, _4 = routines.load_experiment(experiments_path / "e6_2")
-
-k_feature_distance(models1[9], models2[9], testloader, "grad", "false", "all", 2)
+#k_feature_distance(models1[9], models2[9], testloader, "grad", "false", "all", 12)
+find_k("e7_1", 8, testloader, "grad", True, "all")
