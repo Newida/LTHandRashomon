@@ -23,12 +23,12 @@ class Hparams(object):
     
     class TrainingHparams():
         def __init__(self, optimizer_name = "sgd", lr=0.1,
-                      momentum = 0.9, gamma = 0.1, 
+                      momentum = 0.9, gamma = 0.01, 
                       weight_decay=1e-4, loss_criterion = "crossentropy",
-                      num_epoch = 160,
-                      milestone_steps = [80, 120],
+                      num_epoch = 200,
+                      milestone_steps = [100, 150],
                       patience = 10,
-                      min_delta = 4) -> None:
+                      min_delta = 10) -> None:
             
             self.optimizer_name = optimizer_name
             self.lr = lr
@@ -44,12 +44,12 @@ class Hparams(object):
 
     class PruningHparams():
         def __init__(self,
-                    max_pruning_level = 12,
-                    rewind_iter = 0,
-                    pruning_ratio = 0.2,
+                    max_pruning_level = 15,
+                    rewind_iter = 2000,
+                    pruning_ratio = 0.1,
                     method = "l1",
                     pruning_stopper_patience = 3,
-                    pruning_stopper_min_delta = 0) -> None:
+                    pruning_stopper_min_delta = 4) -> None:
             self.pruning_ratio = pruning_ratio
             self.pruning_method = method
             self.max_pruning_level = max_pruning_level

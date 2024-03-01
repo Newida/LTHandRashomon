@@ -314,10 +314,7 @@ def compare_winning_tickets(name1, name2, L, step_size = 0.1):
                                      name2 + "-" + str(L) + ".png"))
 """
 start = time.time()
-for i in [6,8]:
-    compare_winning_tickets("e6_1", "e6_2", i)
-    compare_winning_tickets("e6_1", "e6_3", i)
-    compare_winning_tickets("e6_2", "e6_3", i)
+compare_winning_tickets("e6_3", "e8_3", 8, 0.1)
 end = time.time()
 print("Time of linear mode connectivity:", end - start)
 """
@@ -331,6 +328,7 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
     
     dissimilarity = 0
     normalization = 0
+    dissimilarities = list()
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
     pairwise_euclid_dist = torch.nn.PairwiseDistance(p=2.0)
 
@@ -400,11 +398,13 @@ def calculate_model_dissimilarity(model1, model2, dataloader, attribution_method
         attributions1[prediction_diff != 0] = 0
         attributions2[prediction_diff != 0] = 0
         #calculate pairwise euclidian distances
-        distances = pairwise_euclid_dist(attributions1, attributions2)
+        l = attributions1.flatten(start_dim=1)
+        distances = pairwise_euclid_dist(attributions1.flatten(start_dim=1),
+                                          attributions2.flatten(start_dim=1))
         dissimilarity += torch.sum(distances).item()
         normalization += dataloader.batch_size - torch.sum(prediction_diff != 0).item()
 
-    dissimilarity/normalization
+    dissimilarity = dissimilarity/normalization
 
     return dissimilarity, normalization
 
@@ -452,7 +452,7 @@ def within_group(mode, name, iteration, save = True):
             save_dict[method][i + "-" + j] = d
 
     if save == True:
-        with open(experiments_path / (name + "_" + mode +  "_distances.pkl"), 'wb') as f:
+        with open(experiments_path / (name + "_" + mode +  "_" + str(iteration) + "_distances.pkl"), 'wb') as f:
             pickle.dump(save_dict, f)
 
     return save_dict
@@ -535,7 +535,7 @@ def within_group_lossbased(name, iteration, save = True):
         save_dict["classification"][(i + "-" + j)] = classification_difference
 
     if save == True:
-        with open(experiments_path / (name + "_distances_lossbased.pkl"), 'wb') as f:
+        with open(experiments_path / (name + "_" + str(iteration) + "_distances_lossbased.pkl"), 'wb') as f:
             pickle.dump(save_dict, f)
     return save_dict
 
@@ -666,7 +666,7 @@ def between_groups(name1, name2, mode, iteration, save = True):
             save_dict[method][(i + "-" + j)] = d
 
     if save == True:
-        with open(experiments_path / (name1 + "_" + name2 + "_" + mode +  "_distances.pkl"), 'wb') as f:
+        with open(experiments_path / (name1 + "_" + name2 + "_" + mode +  "_" + str(iteration) + "_distances.pkl"), 'wb') as f:
             pickle.dump(save_dict, f)
 
     return save_dict
@@ -714,7 +714,7 @@ def between_groups_lossbased(name1, name2, iteration, save = True):
         save_dict["classification"][(i + "-" + j)] = classification_difference
 
     if save == True:
-        with open(experiments_path / (name1 + "_" + name2 + "_distances_lossbased.pkl"), 'wb') as f:
+        with open(experiments_path / (name1 + "_" + name2 + "_" + str(iteration) + "_distances_lossbased.pkl"), 'wb') as f:
             pickle.dump(save_dict, f)
 
     return save_dict
@@ -922,7 +922,8 @@ def k_feature_distance(model1, model2, dataloader, attribution_method, noise_tun
             attributions1 = torch.abs(attributions1)
             attributions2 = torch.abs(attributions2)
         #calculate k-feature agreement
-        create_superpixel = torch.nn.AvgPool2d(kernel_size=4)
+        #create_superpixel = torch.nn.AvgPool2d(kernel_size=4)
+        create_superpixel = torch.nn.AvgPool2d(kernel_size=4, stride=2)
         superpixel1 = create_superpixel(attributions1)
         superpixel2 = create_superpixel(attributions2)
 
@@ -932,21 +933,25 @@ def k_feature_distance(model1, model2, dataloader, attribution_method, noise_tun
         feature_importance1 = torch.argsort(superpixel1.flatten(start_dim=1))
         feature_importance2 = torch.argsort(superpixel2.flatten(start_dim=1))
 
-        top_k_features1 = torch.argsort(feature_importance1)[:, :k]
-        top_k_features2 = torch.argsort(feature_importance2)[:, :k]
+        top_k_features1 = torch.argsort(feature_importance1, dim = 1)[:, :k]
+        top_k_features2 = torch.argsort(feature_importance2, dim = 1)[:, :k]
         d = torch.cat([top_k_features1, top_k_features2], dim=1)
         d, counts = torch.unique(d, return_counts=True)
         d = torch.sum(counts > 1).item()
         similarities.append(d / k)
 
+    similarities = torch.tensor(similarities)
     return torch.mean(similarities), torch.std(similarities)
 
 def find_k(name, iteration, dataloader, attribution_method, noise_tunnel, mode):
+    batch_size = 128
+    if attribution_method == "ig":
+        batch_size = 20
     generator = torch.Generator()
     generator.manual_seed(dataloader.generator.initial_seed())
     dataloader = torch.utils.data.DataLoader(
         dataloader.dataset,
-        batch_size=128,
+        batch_size=batch_size,
         shuffle=False,
         num_workers=1,
         generator = generator
@@ -998,7 +1003,7 @@ def find_k(name, iteration, dataloader, attribution_method, noise_tunnel, mode):
             #take the absolute values of attributions
             attributions1 = torch.abs(attributions1)
         #calculate k-feature agreement
-        create_superpixel = torch.nn.AvgPool2d(kernel_size=4)
+        create_superpixel = torch.nn.AvgPool2d(kernel_size=4, stride=4)
         superpixel1 = create_superpixel(attributions1)
         #summarize channels by taking the mean value
         superpixel1 = torch.mean(superpixel1, dim=1)
@@ -1013,6 +1018,347 @@ def find_k(name, iteration, dataloader, attribution_method, noise_tunnel, mode):
         # Save the plot to a file
         plt.savefig(name + "-" + mode + "-" + str(j) + '.png')
 
+def within_group_k_features(name, iteration, mode, k, save = True):
+    #load models to compare
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    winners = list()
+    winner_names = list()
+    pattern = re.compile((name + "_[0-9]"))
+    for p in experiments_path.iterdir():
+        if pattern.match(p.name):
+            models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
+            winners.append(models[iteration + 1])
+            winner_names.append(name + "_" + p.name[-1])
+
+    #reset testloader
+    dataloaderhelper.reset_testloader_generator()
+
+    #calculate pairwise comparison
+    save_dict = dict()
+    names_to_parameters = {"vg": ("grad", False), "sg": ("grad", True), "ig": ("ig", False)}
+
+    for method in ["sg"]:#["vg", "sg", "ig"]:
+        print("Method:", method)
+        print("-"*10)
+        save_dict[method] = dict()
+        for (i,j), (f_i,  f_j) in zip(itertools.combinations(winner_names, 2),
+                                    itertools.combinations(winners, 2)):
+            dataloaderhelper.reset_testloader_generator()
+            attribution_method, nt = names_to_parameters[method]
+            mean, std = k_feature_distance(
+                model1=f_i,
+                model2=f_j,
+                dataloader=testloader,
+                attribution_method=attribution_method,
+                noise_tunnel=nt,
+                mode=mode,
+                k=k
+            )
+            save_dict[method][i + "-" + j] = [mean, std]
+
+    if save == True:
+        with open(experiments_path / ("kernelsize4_stride2" + name + "_" + mode +  "_" + str(k) + "_features_distances.pkl"), 'wb') as f:
+            pickle.dump(save_dict, f)
+
+    return save_dict
+
+def between_groups_k_features(name1, name2, mode, iteration, k, save = True):
+
+    #load models to compare
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    winners1 = list()
+    winner_names1 = list()
+    pattern1 = re.compile((name1 + "_[0-9]"))
+    winners2 = list()
+    winner_names2 = list()
+    pattern2 = re.compile((name2 + "_[0-9]"))
+    for p in experiments_path.iterdir():
+        if pattern1.match(p.name):
+            models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
+            winners1.append(models[iteration + 1])
+            winner_names1.append(name1 + "_" + p.name[-1])
+        elif pattern2.match(p.name):
+            models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(p)
+            winners2.append(models[iteration + 1])
+            winner_names2.append(name2 + "_" + p.name[-1])
+
+    #reset testloader
+    dataloaderhelper.reset_testloader_generator()
+
+    #calculate pairwise comparison
+    save_dict = dict()
+    names_to_parameters = {"vg": ("grad", False), "sg": ("grad", True), "ig": ("ig", False)}
+
+    for method in ["sg"]:#["vg", "sg", "ig"]:
+        print("Method:", method)
+        print("-"*10)
+        save_dict[method] = dict()
+        for (i,j), (f_i,  f_j) in zip(itertools.product(winner_names1, winner_names2),
+                                    itertools.product(winners1, winners2)):
+            dataloaderhelper.reset_testloader_generator()
+            attribution_method, nt = names_to_parameters[method]
+            mean, std = k_feature_distance(
+                model1=f_i,
+                model2=f_j,
+                dataloader=testloader,
+                attribution_method=attribution_method,
+                noise_tunnel=nt,
+                mode=mode,
+                k=k
+            )
+            save_dict[method][(i + "-" + j)] = [mean, std]
+
+    if save == True:
+        with open(experiments_path / ("kernelsize4_stride2" + name1 + "_" + name2 + "_" + mode +  "_" + str(k) + "_features_distances.pkl"), 'wb') as f:
+            pickle.dump(save_dict, f)
+
+    return save_dict
+
+def plot_intra_distance_graphs(list_of_dicts, name):
+    save_path = workdir / "experiments" / name
+    if not save_path.exists():
+        save_path.mkdir(parents=True)
+
+    #normalize weights:
+    normalizer = [1e99] * len(list_of_dicts[0])
+    for i, method in enumerate(list(list_of_dicts[0].keys())):
+        for j, save_dict in enumerate(list_of_dicts):
+            for key, value in save_dict[method].items():
+                if value < normalizer[i]:
+                    normalizer[i] = value
+    
+    #plot distance graph
+    for i, method in enumerate(list(list_of_dicts[0].keys())):
+        for j, save_dict in enumerate(list_of_dicts):
+            if method == "classification":
+                normalizer[i] = 1
+            circ_graph = create_graphviz_description_intra(save_dict, method, normalizer[i])
+            graph = graphviz.Source(circ_graph, engine="circo")
+            node1, node2 = [node.split("_")[0] for node in list(save_dict[method].keys())[0].split("-")]
+            graph.render(save_path / (method + "_" + node1), format='png', cleanup=True)
+
+def create_graphviz_description_intra(save_dict, method, normalizer):
+    s = '''
+    graph bipartite {
+        edge [style="dashed", colorscheme=Greens9]
+
+        node [shape=circle];
+
+    '''
+
+    all_labels = list()
+    for key, value in save_dict[method].items():
+        label = round(value/normalizer, 2)
+        all_labels.append(label)
+    
+    color_map = define_map_labels_to_colors(all_labels)
+
+    for n1, n2 in [node.split("-") for node in list(save_dict[method].keys())]:
+        s += n1 + "; "
+        s += n2 + "; "
+
+    s += "\n"
+    for edge, value in save_dict[method].items():
+        s += (" -- ").join(edge.split("-"))
+        mean, std = value
+        label = "(" + str(mean) + ", " + str(std) + ")"
+        s += "[label=" + str(label) + ";"
+        s += "fontcolor=" + str(color_map[label]) + ", color=" + str(color_map[label])
+        s+= "];\n"
+        
+    s += "}"
+    return s
+
+def visualize_results_intra_k_features():
+    workdir = Path.cwd()
+    experiments_path = workdir / "experiments"
+    if not experiments_path.exists():
+        raise ValueError("No exerpiment exists.")
+
+    pattern = re.compile(("e[0-9]_" + "_k_features_distances.pkl"))
+
+    list_of_dicts = list()
+    for p in experiments_path.iterdir():
+        if pattern.match(p.name):
+            with open(p, "rb") as f:
+                loaded_dict = pickle.load(f)
+            list_of_dicts.append(loaded_dict)
+
+    plot_intra_distance_graphs(list_of_dicts, "k_feature_intraResults")
+
+def calculate_model_dissimilarity_std(model1, model2, dataloader, attribution_method, noise_tunnel, mode, mean):
+    #prepare models
+    model1.eval()
+    model2.eval()
+    model1.remove_pruning()
+    model2.remove_pruning()
+    
+    std = 0
+    normalization = 0
+    classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+    pairwise_euclid_dist = torch.nn.PairwiseDistance(p=2.0)
+
+    if attribution_method == "grad":
+        attr_algo1 = Saliency(model1)
+        attr_algo2 = Saliency(model2)
+        kwargs = {"abs": False}
+        if noise_tunnel == True:
+            attr_algo1 = NoiseTunnel(attr_algo1)
+            attr_algo2 = NoiseTunnel(attr_algo2)
+            kwargs = {"abs": False, "nt_type": 'smoothgrad', "nt_samples": 20, "stdevs": 0.2}
+
+    elif attribution_method == "ig":
+        attr_algo1 = IntegratedGradients(model1)
+        attr_algo2 = IntegratedGradients(model2)
+        #can specify baseline here but default is alread 0 so not necessary
+        kwargs = {"n_steps": 100, "return_convergence_delta": False}
+        if noise_tunnel == True:
+            print("Cannot calculate smoothgrad for ig, since it takes to much memory")
+            print("Ig without smoothgrad is performed.")
+        
+        #create new dataloader with smaller batch_size to avoid out of memory error
+        generator = torch.Generator()
+        generator.manual_seed(dataloader.generator.initial_seed())
+        dataloader = torch.utils.data.DataLoader(
+            dataloader.dataset,
+            batch_size=20,
+            shuffle=False,
+            num_workers=1,
+            generator = generator
+        )
+    
+    else:
+        print("Attribution method not known. Choose either ig or grad.")
+        return
+    
+    for data in dataloader:
+        inputs, labels = data
+        inputs = inputs.to(device)
+        inputs.requires_grad = True
+        labels = labels.to(device)
+        #calculate attribution for first model
+        outputs1 = model1(inputs)
+        labels1 = F.softmax(outputs1, dim=1)
+        prediction_score, pred_labels_idx1 = torch.topk(labels1, 1)
+        pred_labels_idx1.squeeze_()
+        torch.cuda.empty_cache()
+        attributions1 = attr_algo1.attribute(inputs, target=pred_labels_idx1, **kwargs)
+        #calculate attribution for second model
+        outputs2 = model2(inputs)
+        labels2 = F.softmax(outputs2, dim=1)
+        prediction_score, pred_labels_idx2 = torch.topk(labels2, 1)
+        pred_labels_idx2.squeeze_()
+        attributions2 = attr_algo2.attribute(inputs, target=pred_labels_idx2, **kwargs)
+
+        #calculate pairwise distances
+        if mode == "positive":
+            #set negative gradients to 0
+            attributions1[attributions1 < 0] = 0
+            attributions2[attributions2 < 0] = 0
+        elif mode == "abs":
+            #take the absolute values of attributions
+            attributions1 = torch.abs(attributions1)
+            attributions2 = torch.abs(attributions2)
+        #set samples with different predictions to 0 to not count them
+        prediction_diff = pred_labels_idx1 - pred_labels_idx2
+        attributions1[prediction_diff != 0] = 0
+        attributions2[prediction_diff != 0] = 0
+        #calculate pairwise euclidian distances
+        distances = pairwise_euclid_dist(attributions1.flatten(start_dim=1),
+                                          attributions2.flatten(start_dim=1))
+        d99 = distances <= 0
+        d = torch.sum(distances).item()
+        d2 = (distances - mean)
+        d3 = (distances - mean)**2
+        d4 = torch.pow(distances - mean, 2)
+        d6 = d3 - d4
+        std += torch.sum((distances - mean)**2).item()
+        normalization += dataloader.batch_size - torch.sum(prediction_diff != 0).item()
+        
+    std = torch.sqrt(torch.tensor(std/normalization)).item()
+
+    return std
+
+"""
+start = time.time()
+within_group("lossbased", "e6", 8)
+within_group("lossbased", "e7", 8)
+within_group("lossbased", "e8", 8)
+end = time.time()
+print("Time of comparison:", end - start)
+
+start = time.time()
+between_groups("e6", "e7", "lossbased", 8)
+between_groups("e6", "e8", "lossbased", 8)
+between_groups("e7", "e8", "lossbased", 8)
+end = time.time()
+print("Time of comparison:", end - start)
+"""
 
 #k_feature_distance(models1[9], models2[9], testloader, "grad", "false", "all", 12)
-find_k("e7_1", 8, testloader, "grad", True, "all")
+#find_k("e7_1", 8, testloader, "ig", False, "all")
+
+#find_k("e6_1", 8, testloader, "grad", True, "positive")
+
+start = time.time()
+#within_group_k_features("e6", 8, "positive", 5)
+#within_group_k_features("e7", 8, "positive", 5)
+#within_group_k_features("e8", 8, "positive", 5)
+
+#within_group_k_features("e6", 8, "all", 10)
+#within_group_k_features("e7", 8, "all", 10)
+#within_group_k_features("e8", 8, "positive", 10)
+
+#within_group_k_features("e6", 8, "positive", 20)
+#within_group_k_features("e7", 8, "positive", 20)
+#within_group_k_features("e8", 8, "positive", 20)
+end = time.time()
+print("Time of comparison:", end - start)
+
+start = time.time()
+#between_groups_k_features("e6", "e7", "positive", 8, 5)
+#between_groups_k_features("e6", "e8", "positive", 8, 5)
+#between_groups_k_features("e7", "e8", "positive", 8, 5)
+
+#between_groups_k_features("e6", "e7", "all", 8, 10)
+#between_groups_k_features("e6", "e8", "positive", 8, 10)
+#between_groups_k_features("e7", "e8", "positive", 8, 10)
+
+#between_groups_k_features("e6", "e7", "positive", 8, 20)
+#between_groups_k_features("e6", "e8", "positive", 8, 20)
+#between_groups_k_features("e7", "e8", "positive", 8, 20)
+
+#visualize_results_intra_k_features()
+#find_k("e6_1", 8, testloader, "ig", False, "positive")
+
+workdir = Path.cwd()
+experiments_path = workdir / "experiments"
+if not experiments_path.exists():
+    raise ValueError("No exerpiment exists.")
+
+name1 = "e6_3"
+name2 = "e7_3"
+models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(experiments_path / name1)
+model1 = models[9]
+models, all_stats1, _1, _2, _3, _4 = routines.load_experiment(experiments_path / name2)
+model2 = models[9]
+
+#k_feature_distance(model1, model2, testloader, "grad", False, "positive", 5)
+
+mean2, _ = calculate_model_dissimilarity(model1, model2, testloader, "ig", False, "positive")
+print("name1:", name1)
+print("name2:", name2)
+print("mean2:", mean2)
+print("std:", 
+      calculate_model_dissimilarity_std(model1, model2, testloader, "ig", False, "positive", mean2)
+)
+end = time.time()
+print("Time of comparison:", end - start)
